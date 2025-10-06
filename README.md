@@ -1,36 +1,270 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+## Zuno Meme Live
 
-## Getting Started
+![Next.js badge](https://img.shields.io/badge/Next.js-15-black?logo=nextdotjs)
+![React badge](https://img.shields.io/badge/React-19-61dafb?logo=react&logoColor=white)
+![TypeScript badge](https://img.shields.io/badge/TypeScript-5-3178c6?logo=typescript&logoColor=white)
+![License](https://img.shields.io/badge/License-MIT-green)
 
-First, run the development server:
+Embedded widget built with Next.js 15 showcasing a secure, signed iframe
+authentication flow suitable for integrating into third‑party dashboards.
+
+### Features
+
+- Secure signed iframe authentication (HMAC‑style sha256 verification)
+- Minimal UI states: loading, error, ready
+- Dev‑mode CORS allowlist for seamless local embedding
+- Clean TypeScript utilities and path aliasing (`@/*`)
+
+### Table of Contents
+
+- [Zuno Meme Live](#zuno-meme-live)
+  - [Features](#features)
+  - [Table of Contents](#table-of-contents)
+  - [Tech](#tech)
+- [Quick Start](#quick-start)
+  - [Prerequisites](#prerequisites)
+  - [Install](#install)
+  - [Environment](#environment)
+  - [Develop](#develop)
+  - [Build \& Start](#build--start)
+- [Project Structure](#project-structure)
+- [Iframe Auth Flow](#iframe-auth-flow)
+  - [Token format](#token-format)
+  - [Timestamp skew](#timestamp-skew)
+- [API](#api)
+  - [GET /api/iframe-auth](#get-apiiframe-auth)
+- [Embedding Example](#embedding-example)
+- [Scripts](#scripts)
+- [Configuration](#configuration)
+- [Security](#security)
+- [Deployment](#deployment)
+- [Browser Support](#browser-support)
+- [Contributing](#contributing)
+  - [Commit message format](#commit-message-format)
+  - [Development workflow](#development-workflow)
+- [License](#license)
+
+### Tech
+
+- Next.js 15, React 19
+- TypeScript, ESLint, Tailwind CSS v4
+- Radix UI primitives and custom UI components
+
+---
+
+## Quick Start
+
+### Prerequisites
+
+- Node.js 18+ (recommended 20+)
+- pnpm 9+
+
+### Install
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+pnpm install
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+### Environment
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+Create a `.env.local` in the project root:
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+```bash
+# secret used to sign iframe auth tokens
+IFRAME_API_SECRET=your-long-random-secret
 
-## Learn More
+# comma-separated list of allowed origins for CORS during development
+NEXT_PUBLIC_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:3001
+```
 
-To learn more about Next.js, take a look at the following resources:
+### Develop
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+pnpm dev
+# App: http://localhost:3000
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+Optional: run the simple static test host for embedding tests
 
-## Deploy on Vercel
+```bash
+pnpm test:iframe
+# Test host: http://localhost:3001
+```
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+### Build & Start
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```bash
+pnpm build
+pnpm start
+```
+
+---
+
+## Project Structure
+
+```
+src/
+  app/
+    api/iframe-auth/route.ts   # Signed token validation endpoint
+    iframe/page.tsx            # Iframe UI that calls the auth endpoint
+    page.tsx                   # Landing page
+  lib/iframe.ts                # Utilities: params parsing, skew check, CORS
+  components/ui/*              # UI primitives
+```
+
+Path alias: `@/*` maps to `./src/*`.
+
+---
+
+## Iframe Auth Flow
+
+The embedded page lives at `/iframe`. It expects three query parameters:
+`token`, `nonce`, and `timestamp` (unix seconds). The page calls the
+validation endpoint `/api/iframe-auth` with the same parameters. The server
+recomputes the expected token using a shared secret and rejects requests if the
+timestamp is outside an allowed skew window.
+
+### Token format
+
+- Build message: `${IFRAME_API_SECRET}:${nonce}:${timestamp}`
+- Compute hex digest: `sha256(message)`
+
+### Timestamp skew
+
+- Default allowed skew: ±300 seconds (config in `withinSkew`)
+
+---
+
+## API
+
+### GET /api/iframe-auth
+
+Validates the signed parameters.
+
+Query params:
+
+- `token`: hex string, sha256(secret:nonce:timestamp)
+- `nonce`: opaque nonce generated by the host
+- `timestamp`: unix seconds
+
+Responses:
+
+```json
+{ "success": true }
+```
+
+```json
+{ "success": false, "error": "invalid token" }
+```
+
+Notes:
+
+- During development, CORS is conditionally enabled for origins listed in
+  `NEXT_PUBLIC_ALLOWED_ORIGINS`.
+
+---
+
+## Embedding Example
+
+1. Host generates parameters:
+
+```js
+const secret = process.env.IFRAME_API_SECRET;
+const nonce = crypto.randomUUID();
+const timestamp = Math.floor(Date.now() / 1000);
+const token = sha256(`${secret}:${nonce}:${timestamp}`); // hex digest
+```
+
+2. Embed iframe with parameters:
+
+```html
+<iframe
+  src="http://localhost:3000/iframe?token=HEX&nonce=UUID&timestamp=SECONDS"
+  width="360"
+  height="240"
+  style="border:0;"
+  allow="clipboard-read; clipboard-write;"
+></iframe>
+```
+
+3. The iframe will call `/api/iframe-auth` automatically and display
+   loading / error / ready states.
+
+---
+
+## Scripts
+
+```bash
+pnpm dev          # Start Next.js in development (Turbopack)
+pnpm build        # Production build (Turbopack)
+pnpm start        # Start production server
+pnpm lint         # Run ESLint
+pnpm test:iframe  # Serve static test host at :3001
+```
+
+---
+
+## Configuration
+
+- `IFRAME_API_SECRET` must be set for the validation endpoint to work.
+- `NEXT_PUBLIC_ALLOWED_ORIGINS` is only used in development for CORS.
+
+---
+
+## Security
+
+- Use a strong, randomly generated `IFRAME_API_SECRET` and rotate periodically.
+- Validate `timestamp` server‑side and keep the clock in sync (NTP).
+- Set precise `Access-Control-Allow-Origin` in production (disable wildcard).
+- Prefer short‑lived iframes; avoid storing sensitive data inside the iframe.
+
+---
+
+## Deployment
+
+This is a standard Next.js App Router project. You can deploy to any platform
+that supports Node.js. Typical steps:
+
+1. Provide environment variables at build/runtime (`IFRAME_API_SECRET`).
+2. Build with `pnpm build`.
+3. Run with `pnpm start` (or your platform's adapter).
+
+Vercel, Render, Fly.io, and similar platforms are supported.
+
+---
+
+## Browser Support
+
+Modern evergreen browsers. The UI targets Chromium, Firefox, and Safari latest
+2 versions. Internet Explorer is not supported.
+
+---
+
+## Contributing
+
+Contributions are welcome. Please follow conventional commits and the
+project's linting/formatting rules.
+
+### Commit message format
+
+```
+<type>(<scope>): <description>
+
+- <what and why line 1>
+- <what and why line 2>
+```
+
+Valid types include: feat, fix, docs, style, refactor, perf, test, chore, ci,
+build, revert. Keep the header ≤ 50 chars and body lines ≤ 100 chars.
+
+### Development workflow
+
+- Branch from `feature/*` or `bugfix/*`.
+- Run `pnpm lint` and `pnpm format` before committing.
+- Ensure changes pass type checks and basic manual verification.
+
+---
+
+## License
+
+MIT
