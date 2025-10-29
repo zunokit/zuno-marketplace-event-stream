@@ -1,0 +1,79 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Zuno Event Stream - IFrame Test</title>
+  <link rel="stylesheet" href="./style.css">
+</head>
+<body>
+  <div class="container">
+    <header>
+      <h1>🎯 Zuno Event Stream - IFrame Test</h1>
+      <p>Generate secure token and embed event stream widget</p>
+    </header>
+
+    <section class="config-section">
+      <h2>⚙️ Configuration</h2>
+      <div class="form-group">
+        <label for="appUrl">App URL</label>
+        <input type="text" id="appUrl" value="http://localhost:3000" />
+      </div>
+      <div class="form-group">
+        <label for="secret">Secret Key (IFRAME_API_SECRET)</label>
+        <input type="text" id="secret" value="my-super-secret-key-change-this-in-production-min-32-chars" />
+      </div>
+      <button id="generateBtn" class="btn-primary">🔐 Generate Token & Embed</button>
+    </section>
+
+    <section class="token-section" id="tokenSection" style="display: none;">
+      <h2>🔑 Generated Token</h2>
+      <div class="token-info">
+        <div class="info-row">
+          <span class="label">Nonce:</span>
+          <code id="nonce"></code>
+        </div>
+        <div class="info-row">
+          <span class="label">Timestamp:</span>
+          <code id="timestamp"></code>
+        </div>
+        <div class="info-row">
+          <span class="label">Token:</span>
+          <code id="token" class="token-value"></code>
+        </div>
+        <div class="info-row">
+          <span class="label">Expires:</span>
+          <code id="expires"></code>
+        </div>
+        <div class="info-row">
+          <span class="label">Embed URL:</span>
+          <code id="embedUrl" class="token-value"></code>
+          <button id="copyBtn" class="btn-small">📋 Copy</button>
+        </div>
+      </div>
+    </section>
+
+    <section class="iframe-section" id="iframeSection" style="display: none;">
+      <h2>📺 Embedded Widget</h2>
+      <div class="iframe-container">
+        <iframe
+          id="eventIframe"
+          frameborder="0"
+          sandbox="allow-same-origin allow-scripts allow-forms"
+          allow="clipboard-read; clipboard-write"
+        ></iframe>
+      </div>
+      <div class="controls">
+        <button id="refreshBtn" class="btn-secondary">🔄 Refresh</button>
+        <button id="newTokenBtn" class="btn-secondary">🔑 New Token</button>
+      </div>
+    </section>
+
+    <footer>
+      <p>⚡ Token expires in 5 minutes | Built with ❤️ for Zuno Marketplace</p>
+    </footer>
+  </div>
+
+  <script src="./script.js"></script>
+</body>
+</html>

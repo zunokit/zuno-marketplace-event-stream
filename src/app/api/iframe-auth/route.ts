@@ -1,13 +1,22 @@
 import { NextRequest, NextResponse } from "next/server";
-import crypto from "crypto";
-import { allowCorsInDev, parseRequiredParams, withinSkew } from "@/lib/iframe";
+import {
+  validateToken,
+  checkRateLimit,
+  getClientIP,
+  parseRequiredParams,
+  isOriginAllowed,
+} from "@/lib/security/auth";
+import { allowCorsInDev } from "@/lib/middleware/cors";
 
 function jsonWithCors(
-  body: any,
-  init: { status: number },
+  body: Record<string, unknown>,
+  init: { status: number; headers?: HeadersInit },
   origin: string | null
 ) {
-  return allowCorsInDev(NextResponse.json(body, init), origin);
+  return allowCorsInDev(
+    NextResponse.json(body, init),
+    origin
+  );
 }
 
 export async function OPTIONS(request: NextRequest) {
@@ -19,55 +28,87 @@ export async function OPTIONS(request: NextRequest) {
 export async function GET(request: NextRequest) {
   const origin = request.headers.get("origin");
 
+  // 0. Origin validation (OPTIONAL - comment out to disable)
+  // Protects against token theft by checking origin
+  if (!isOriginAllowed(origin)) {
+    console.warn(`🚨 Blocked unauthorized origin: ${origin || 'null'}`);
+    return jsonWithCors(
+      {
+        success: false,
+        error: "Origin not allowed. Contact support to whitelist your domain.",
+      },
+      { status: 403 },
+      origin
+    );
+  }
+
+  // 1. Rate limiting
+  const clientIP = getClientIP(request.headers);
+  const rateLimit = checkRateLimit(clientIP);
+
+  if (!rateLimit.allowed) {
+    return jsonWithCors(
+      {
+        success: false,
+        error: "Too many requests. Please try again later.",
+      },
+      {
+        status: 429,
+        headers: {
+          "X-RateLimit-Limit": "60",
+          "X-RateLimit-Remaining": String(rateLimit.remaining),
+          "X-RateLimit-Reset": String(rateLimit.resetAt),
+          "Retry-After": String(
+            Math.ceil((rateLimit.resetAt - Date.now()) / 1000)
+          ),
+        },
+      },
+      origin
+    );
+  }
+
+  // 2. Parse parameters
   const params = parseRequiredParams(request.url);
   if (!params) {
     return jsonWithCors(
-      { success: false, error: "missing parameters" },
+      { success: false, error: "Missing required parameters" },
       { status: 400 },
       origin
     );
   }
 
-  const { token, nonce, timestamp } = params;
-
-  if (!withinSkew(timestamp)) {
-    return jsonWithCors(
-      { success: false, error: "expired timestamp" },
-      { status: 403 },
-      origin
-    );
-  }
-
+  // 3. Get secret
   const secret = process.env.IFRAME_API_SECRET;
   if (!secret) {
+    console.error("IFRAME_API_SECRET is not configured");
     return jsonWithCors(
-      { success: false, error: "server not configured" },
+      { success: false, error: "Server configuration error" },
       { status: 500 },
       origin
     );
   }
 
-  const message = `${secret}:${nonce}:${timestamp}`;
-  const expected = crypto.createHash("sha256").update(message).digest("hex");
-  try {
-    const ok = crypto.timingSafeEqual(
-      Buffer.from(token, "hex"),
-      Buffer.from(expected, "hex")
-    );
-    if (!ok) {
-      return jsonWithCors(
-        { success: false, error: "invalid token" },
-        { status: 403 },
-        origin
-      );
-    }
-  } catch {
+  // 4. Validate token
+  const validation = validateToken(params, secret);
+
+  if (!validation.valid) {
     return jsonWithCors(
-      { success: false, error: "invalid token" },
+      { success: false, error: validation.error || "Authentication failed" },
       { status: 403 },
       origin
     );
   }
 
-  return jsonWithCors({ success: true }, { status: 200 }, origin);
+  // 5. Success
+  return jsonWithCors(
+    { success: true },
+    {
+      status: 200,
+      headers: {
+        "X-RateLimit-Limit": "60",
+        "X-RateLimit-Remaining": String(rateLimit.remaining),
+      },
+    },
+    origin
+  );
 }

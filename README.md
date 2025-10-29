@@ -1,270 +1,308 @@
-## Zuno Meme Live
+# Zuno Marketplace Event Stream
 
 ![Next.js badge](https://img.shields.io/badge/Next.js-15-black?logo=nextdotjs)
 ![React badge](https://img.shields.io/badge/React-19-61dafb?logo=react&logoColor=white)
 ![TypeScript badge](https://img.shields.io/badge/TypeScript-5-3178c6?logo=typescript&logoColor=white)
 ![License](https://img.shields.io/badge/License-MIT-green)
 
-Embedded widget built with Next.js 15 showcasing a secure, signed iframe
-authentication flow suitable for integrating into third‑party dashboards.
+Live event stream widget for Zuno NFT Marketplace. Real-time display of marketplace activities (trades, auctions, offers, mints) with secure iframe embedding and auto-scrolling ticker animation.
 
-### Features
+## 🌟 Features
 
-- Secure signed iframe authentication (HMAC‑style sha256 verification)
-- Minimal UI states: loading, error, ready
-- Dev‑mode CORS allowlist for seamless local embedding
-- Clean TypeScript utilities and path aliasing (`@/*`)
+### Core
+- **Live Event Ticker** - Auto-scrolling event feed with smooth transitions
+- **Real-time Polling** - Fetches new events every 30 seconds from Ponder API
+- **Event Categories** - Auction, Offer, Trade, Listing, Mint, Collection
+- **Type-Safe API Client** - Full TypeScript integration with Ponder indexer
 
-### Table of Contents
+### Security
+- **Secure IFrame Auth** - SHA256 HMAC token validation
+- **Rate Limiting** - 60 requests/minute per IP
+- **Timestamp Validation** - ±5 minute skew window
+- **CORS Protection** - Configurable allowed origins
 
-- [Zuno Meme Live](#zuno-meme-live)
-  - [Features](#features)
-  - [Table of Contents](#table-of-contents)
-  - [Tech](#tech)
-- [Quick Start](#quick-start)
-  - [Prerequisites](#prerequisites)
-  - [Install](#install)
-  - [Environment](#environment)
-  - [Develop](#develop)
-  - [Build \& Start](#build--start)
-- [Project Structure](#project-structure)
-- [Iframe Auth Flow](#iframe-auth-flow)
-  - [Token format](#token-format)
-  - [Timestamp skew](#timestamp-skew)
-- [API](#api)
-  - [GET /api/iframe-auth](#get-apiiframe-auth)
-- [Embedding Example](#embedding-example)
-- [Scripts](#scripts)
-- [Configuration](#configuration)
-- [Security](#security)
-- [Deployment](#deployment)
-- [Browser Support](#browser-support)
-- [Contributing](#contributing)
-  - [Commit message format](#commit-message-format)
-  - [Development workflow](#development-workflow)
-- [License](#license)
+### UI/UX
+- **Responsive Design** - Works in any iframe size
+- **Smooth Animations** - CSS transitions for event slides
+- **Error Handling** - Retry mechanism with exponential backoff
+- **Last Updated Indicator** - Real-time status display
 
-### Tech
+## 📋 Prerequisites
 
-- Next.js 15, React 19
-- TypeScript, ESLint, Tailwind CSS v4
-- Radix UI primitives and custom UI components
+- **Node.js** 18+ (recommended 20+)
+- **pnpm** 9+
+- **Ponder Indexer** running on `localhost:42069` (or configured URL)
 
----
+## 🚀 Quick Start
 
-## Quick Start
-
-### Prerequisites
-
-- Node.js 18+ (recommended 20+)
-- pnpm 9+
-
-### Install
+### 1. Install Dependencies
 
 ```bash
 pnpm install
 ```
 
-### Environment
+### 2. Configure Environment
 
-Create a `.env.local` in the project root:
+Copy `.env.example` to `.env.local`:
 
 ```bash
-# secret used to sign iframe auth tokens
-IFRAME_API_SECRET=your-long-random-secret
-
-# comma-separated list of allowed origins for CORS during development
-NEXT_PUBLIC_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:3001
+cp .env.example .env.local
 ```
 
-### Develop
+Edit `.env.local`:
+
+```bash
+# Security - Generate a strong secret (min 32 chars)
+IFRAME_API_SECRET=your-super-secret-key-here-min-32-characters
+
+# Ponder API URL (your indexer)
+NEXT_PUBLIC_PONDER_API_URL=http://localhost:42069
+
+# CORS Origins (dev only)
+NEXT_PUBLIC_ALLOWED_ORIGINS=http://localhost:3000,http://localhost:3001
+
+# App URL
+NEXT_PUBLIC_APP_URL=http://localhost:3000
+```
+
+### 3. Start Development Server
 
 ```bash
 pnpm dev
 # App: http://localhost:3000
 ```
 
-Optional: run the simple static test host for embedding tests
+### 4. Test with IFrame
+
+Open the test page to generate tokens and embed the widget:
 
 ```bash
 pnpm test:iframe
 # Test host: http://localhost:3001
 ```
 
-### Build & Start
+Open browser at `http://localhost:3001`, enter your secret, and click "Generate Token & Embed".
 
-```bash
-pnpm build
-pnpm start
-```
-
----
-
-## Project Structure
+## 📁 Project Structure
 
 ```
 src/
-  app/
-    api/iframe-auth/route.ts   # Signed token validation endpoint
-    iframe/page.tsx            # Iframe UI that calls the auth endpoint
-    page.tsx                   # Landing page
-  lib/iframe.ts                # Utilities: params parsing, skew check, CORS
-  components/ui/*              # UI primitives
+├── app/
+│   ├── page.tsx                      # Main page with auth & event feed
+│   ├── layout.tsx                    # Root layout with QueryProvider
+│   └── api/
+│       └── iframe-auth/route.ts      # Token validation endpoint
+├── components/
+│   └── events/
+│       ├── event-feed.tsx            # Main feed container
+│       ├── event-ticker.tsx          # Auto-scroll ticker
+│       ├── event-item.tsx            # Individual event card
+│       └── event-empty.tsx           # Empty/error states
+├── hooks/
+│   └── use-events.ts                 # React Query hook for polling
+├── lib/
+│   ├── services/
+│   │   └── ponder-client.ts          # Ponder API client
+│   ├── security/
+│   │   └── auth.ts                   # Token validation & rate limiting
+│   ├── utils/
+│   │   └── format.ts                 # Formatters (address, time, etc.)
+│   ├── providers/
+│   │   └── query-provider.tsx        # TanStack Query provider
+│   └── iframe.ts                     # IFrame utilities
+└── test/
+    ├── index.html                    # Test harness
+    ├── style.css                     # Test UI styles
+    └── script.js                     # Token generation logic
 ```
 
-Path alias: `@/*` maps to `./src/*`.
+## 🔐 Security & Authentication
 
----
+### Token Generation
 
-## Iframe Auth Flow
+The widget uses HMAC SHA256 tokens for authentication:
 
-The embedded page lives at `/iframe`. It expects three query parameters:
-`token`, `nonce`, and `timestamp` (unix seconds). The page calls the
-validation endpoint `/api/iframe-auth` with the same parameters. The server
-recomputes the expected token using a shared secret and rejects requests if the
-timestamp is outside an allowed skew window.
-
-### Token format
-
-- Build message: `${IFRAME_API_SECRET}:${nonce}:${timestamp}`
-- Compute hex digest: `sha256(message)`
-
-### Timestamp skew
-
-- Default allowed skew: ±300 seconds (config in `withinSkew`)
-
----
-
-## API
-
-### GET /api/iframe-auth
-
-Validates the signed parameters.
-
-Query params:
-
-- `token`: hex string, sha256(secret:nonce:timestamp)
-- `nonce`: opaque nonce generated by the host
-- `timestamp`: unix seconds
-
-Responses:
-
-```json
-{ "success": true }
-```
-
-```json
-{ "success": false, "error": "invalid token" }
-```
-
-Notes:
-
-- During development, CORS is conditionally enabled for origins listed in
-  `NEXT_PUBLIC_ALLOWED_ORIGINS`.
-
----
-
-## Embedding Example
-
-1. Host generates parameters:
-
-```js
+```typescript
 const secret = process.env.IFRAME_API_SECRET;
 const nonce = crypto.randomUUID();
 const timestamp = Math.floor(Date.now() / 1000);
-const token = sha256(`${secret}:${nonce}:${timestamp}`); // hex digest
+const message = `${secret}:${nonce}:${timestamp}`;
+const token = sha256(message);
 ```
 
-2. Embed iframe with parameters:
+### Embedding
 
 ```html
 <iframe
-  src="http://localhost:3000/iframe?token=HEX&nonce=UUID&timestamp=SECONDS"
-  width="360"
-  height="240"
-  style="border:0;"
-  allow="clipboard-read; clipboard-write;"
+  src="http://localhost:3000?token=TOKEN&nonce=NONCE&timestamp=TIMESTAMP"
+  width="800"
+  height="600"
+  frameborder="0"
+  sandbox="allow-same-origin allow-scripts allow-forms"
+  allow="clipboard-read; clipboard-write"
 ></iframe>
 ```
 
-3. The iframe will call `/api/iframe-auth` automatically and display
-   loading / error / ready states.
+### Token Expiry
 
----
+- Tokens are valid for **5 minutes** from generation
+- Timestamp validation uses ±300 second skew window
+- Rate limiting: 60 requests/minute per IP
 
-## Scripts
+## 🛠️ Scripts
 
 ```bash
-pnpm dev          # Start Next.js in development (Turbopack)
-pnpm build        # Production build (Turbopack)
-pnpm start        # Start production server
-pnpm lint         # Run ESLint
-pnpm test:iframe  # Serve static test host at :3001
+pnpm dev              # Start development server (Turbopack)
+pnpm build            # Production build
+pnpm start            # Start production server
+pnpm lint             # Run ESLint
+pnpm test:iframe      # Serve test host at :3001
+pnpm generate-token   # CLI tool to generate embed tokens
 ```
 
----
+## 🔗 API Integration
 
-## Configuration
-
-- `IFRAME_API_SECRET` must be set for the validation endpoint to work.
-- `NEXT_PUBLIC_ALLOWED_ORIGINS` is only used in development for CORS.
-
----
-
-## Security
-
-- Use a strong, randomly generated `IFRAME_API_SECRET` and rotate periodically.
-- Validate `timestamp` server‑side and keep the clock in sync (NTP).
-- Set precise `Access-Control-Allow-Origin` in production (disable wildcard).
-- Prefer short‑lived iframes; avoid storing sensitive data inside the iframe.
-
----
-
-## Deployment
-
-This is a standard Next.js App Router project. You can deploy to any platform
-that supports Node.js. Typical steps:
-
-1. Provide environment variables at build/runtime (`IFRAME_API_SECRET`).
-2. Build with `pnpm build`.
-3. Run with `pnpm start` (or your platform's adapter).
-
-Vercel, Render, Fly.io, and similar platforms are supported.
-
----
-
-## Browser Support
-
-Modern evergreen browsers. The UI targets Chromium, Firefox, and Safari latest
-2 versions. Internet Explorer is not supported.
-
----
-
-## Contributing
-
-Contributions are welcome. Please follow conventional commits and the
-project's linting/formatting rules.
-
-### Commit message format
+### Ponder API Endpoints Used
 
 ```
-<type>(<scope>): <description>
+GET /api/activity?limit=50
+  → Returns latest marketplace events
 
-- <what and why line 1>
-- <what and why line 2>
+GET /api/events?category=auction&limit=50
+  → Returns filtered events by category
 ```
 
-Valid types include: feat, fix, docs, style, refactor, perf, test, chore, ci,
-build, revert. Keep the header ≤ 50 chars and body lines ≤ 100 chars.
+### Event Schema
 
-### Development workflow
+```typescript
+{
+  id: string;                    // tx_hash:log_index
+  eventType: string;             // "auction_created", "nft_purchased", etc.
+  category: string;              // "auction" | "offer" | "trade" | "mint" | "collection"
+  actor: string;                 // Primary user address
+  counterparty?: string;         // Secondary user (if applicable)
+  collection?: string;           // NFT collection address
+  tokenId?: string;              // Token ID
+  data: object;                  // Event-specific JSON data
+  blockTimestamp: string;        // Unix timestamp
+  transactionHash: string;       // Transaction hash
+  chainId: number;               // Chain ID
+}
+```
 
-- Branch from `feature/*` or `bugfix/*`.
-- Run `pnpm lint` and `pnpm format` before committing.
-- Ensure changes pass type checks and basic manual verification.
+## 🎨 Customization
+
+### Event Display
+
+Edit `src/components/events/event-item.tsx` to customize how events are displayed:
+
+- Change icons (emoji or lucide-react icons)
+- Modify colors per category
+- Add/remove fields
+
+### Polling Interval
+
+Edit `src/hooks/use-events.ts`:
+
+```typescript
+refetchInterval: 30000, // Change to your desired interval (ms)
+```
+
+### Animation Speed
+
+Edit `src/components/events/event-ticker.tsx`:
+
+```typescript
+scrollInterval: 3000, // Time per event (ms)
+```
+
+## 🚀 Deployment
+
+### Environment Variables (Production)
+
+```bash
+IFRAME_API_SECRET=your-production-secret-min-32-chars
+NEXT_PUBLIC_PONDER_API_URL=https://your-ponder-api.com
+NEXT_PUBLIC_APP_URL=https://your-domain.com
+```
+
+### Vercel
+
+```bash
+pnpm build
+vercel --prod
+```
+
+### Docker
+
+```dockerfile
+FROM node:20-alpine
+WORKDIR /app
+COPY package.json pnpm-lock.yaml ./
+RUN npm install -g pnpm && pnpm install
+COPY . .
+RUN pnpm build
+CMD ["pnpm", "start"]
+```
+
+## 🧪 Testing
+
+### Manual Testing
+
+1. Start Ponder indexer: `cd ../zuno-marketplace-indexer && pnpm dev`
+2. Start Next.js app: `pnpm dev`
+3. Open test harness: `pnpm test:iframe`
+4. Generate token and verify iframe loads
+
+### Integration Testing
+
+Ensure your Ponder API returns events in the expected format:
+
+```bash
+curl http://localhost:42069/api/activity?limit=10
+```
+
+## 🔧 Troubleshooting
+
+### "Missing NEXT_PUBLIC_PONDER_API_URL"
+
+Set the environment variable in `.env.local`:
+
+```bash
+NEXT_PUBLIC_PONDER_API_URL=http://localhost:42069
+```
+
+### "Invalid token" / "Token expired"
+
+- Check `IFRAME_API_SECRET` matches between test page and server
+- Ensure system clock is synchronized (NTP)
+- Regenerate token (valid for 5 minutes only)
+
+### No events showing
+
+- Verify Ponder indexer is running: `curl http://localhost:42069/api/activity`
+- Check browser console for API errors
+- Ensure CORS is configured correctly
+
+### Rate limit errors
+
+- Reduce polling frequency in `use-events.ts`
+- Increase rate limit in `src/lib/security/auth.ts`
+
+## 📝 License
+
+MIT License - see [LICENSE](LICENSE) file
+
+## 🤝 Contributing
+
+Contributions welcome! Please follow:
+
+1. Fork the repository
+2. Create feature branch: `git checkout -b feature/amazing-feature`
+3. Commit changes: `git commit -m 'feat: add amazing feature'`
+4. Push to branch: `git push origin feature/amazing-feature`
+5. Open Pull Request
 
 ---
 
-## License
-
-MIT
+**Built with ❤️ for Zuno Marketplace**
