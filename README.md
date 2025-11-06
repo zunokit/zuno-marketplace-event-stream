@@ -303,6 +303,26 @@ Contributions welcome! Please follow:
 4. Push to branch: `git push origin feature/amazing-feature`
 5. Open Pull Request
 
+## 📚 Documentation
+
+- **[API Documentation](./docs/API.md)** - Complete API reference, authentication, error codes
+- **[Architecture Guide](./docs/ARCHITECTURE.md)** - System design, data flow, security architecture
+
+## 🧪 Testing
+
+Run tests:
+```bash
+pnpm test              # Run all tests
+pnpm test:ui           # Run with UI
+pnpm test:coverage     # Generate coverage report
+```
+
+Test coverage focuses on security-critical code:
+- ✅ Token generation & validation
+- ✅ Rate limiting logic
+- ✅ Origin checking
+- ✅ Parameter parsing
+
 ---
 
 **Built with ❤️ for Zuno Marketplace**

@@ -6,6 +6,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Spinner } from "@/components/ui/spinner";
 import { EventFeed } from "@/components/events/event-feed";
+import { ErrorBoundary } from "@/components/error-boundary";
 
 type AuthState = "idle" | "loading" | "ok" | "error";
 
@@ -106,7 +107,9 @@ function HomeContent() {
           <CardTitle className="text-base">Zuno Marketplace Events</CardTitle>
         </CardHeader>
         <CardContent className="p-0 h-[calc(100%-4rem)]">
-          <EventFeed limit={50} autoScroll />
+          <ErrorBoundary>
+            <EventFeed limit={50} autoScroll />
+          </ErrorBoundary>
         </CardContent>
       </Card>
     </div>
