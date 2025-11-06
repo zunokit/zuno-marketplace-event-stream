@@ -1,11 +1,22 @@
 /**
  * Ponder API Client
  * Type-safe client for fetching events from Zuno Marketplace Indexer
+ *
+ * Features:
+ * - ETag-based caching for bandwidth optimization
+ * - Conditional GET requests (If-None-Match)
+ * - Automatic 304 Not Modified handling
  */
 
 // ============================================================================
 // Types
 // ============================================================================
+
+interface CacheEntry<T> {
+  etag: string;
+  data: T;
+  timestamp: number;
+}
 
 export interface PonderEvent {
   id: string;
@@ -46,6 +57,8 @@ export interface PonderClientConfig {
   baseUrl: string;
   apiKey?: string;
   timeout?: number;
+  enableCache?: boolean;
+  cacheMaxAge?: number; // milliseconds
 }
 
 export interface FetchEventsOptions {
@@ -78,33 +91,95 @@ export class PonderClientError extends Error {
 
 export class PonderClient {
   private config: Required<PonderClientConfig>;
+  private cache: Map<string, CacheEntry<unknown>>;
 
   constructor(config: PonderClientConfig) {
     this.config = {
       baseUrl: config.baseUrl,
       apiKey: config.apiKey || "",
       timeout: config.timeout || 10000,
+      enableCache: config.enableCache ?? true,
+      cacheMaxAge: config.cacheMaxAge || 60000, // 60 seconds default
     };
+    this.cache = new Map();
+  }
+
+  /**
+   * Clear expired cache entries
+   */
+  private cleanupCache(): void {
+    const now = Date.now();
+    for (const [key, entry] of this.cache.entries()) {
+      if (now - entry.timestamp > this.config.cacheMaxAge) {
+        this.cache.delete(key);
+      }
+    }
+  }
+
+  /**
+   * Get cached data if available and valid
+   */
+  private getCached<T>(key: string): CacheEntry<T> | null {
+    if (!this.config.enableCache) return null;
+
+    const entry = this.cache.get(key);
+    if (!entry) return null;
+
+    // Check if cache is still valid
+    const now = Date.now();
+    if (now - entry.timestamp > this.config.cacheMaxAge) {
+      this.cache.delete(key);
+      return null;
+    }
+
+    return entry as CacheEntry<T>;
+  }
+
+  /**
+   * Set cache entry
+   */
+  private setCache<T>(key: string, etag: string, data: T): void {
+    if (!this.config.enableCache) return;
+
+    this.cache.set(key, {
+      etag,
+      data,
+      timestamp: Date.now(),
+    });
+
+    // Cleanup old entries periodically
+    if (this.cache.size > 100) {
+      this.cleanupCache();
+    }
   }
 
   /**
    * Generic fetch wrapper with timeout and error handling
+   * Supports ETag-based caching with conditional requests
    */
   private async fetch<T>(
     endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {
+    const cacheKey = `${endpoint}`;
+    const cached = this.getCached<T>(cacheKey);
+
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), this.config.timeout);
 
     try {
-      const headers: HeadersInit = {
+      const headers: Record<string, string> = {
         "Content-Type": "application/json",
-        ...options.headers,
+        ...(options.headers as Record<string, string>),
       };
 
       if (this.config.apiKey) {
         headers["Authorization"] = `Bearer ${this.config.apiKey}`;
+      }
+
+      // Add If-None-Match header if we have cached ETag
+      if (cached?.etag) {
+        headers["If-None-Match"] = cached.etag;
       }
 
       const response = await fetch(`${this.config.baseUrl}${endpoint}`, {
@@ -115,6 +190,14 @@ export class PonderClient {
 
       clearTimeout(timeoutId);
 
+      // Handle 304 Not Modified - return cached data
+      if (response.status === 304) {
+        if (cached) {
+          return cached.data;
+        }
+        throw new PonderClientError("304 Not Modified but no cached data", 304);
+      }
+
       if (!response.ok) {
         throw new PonderClientError(
           `HTTP ${response.status}: ${response.statusText}`,
@@ -123,6 +206,13 @@ export class PonderClient {
       }
 
       const data = await response.json();
+
+      // Store ETag if present
+      const etag = response.headers.get("ETag");
+      if (etag) {
+        this.setCache(cacheKey, etag, data);
+      }
+
       return data as T;
     } catch (error) {
       clearTimeout(timeoutId);
@@ -141,6 +231,23 @@ export class PonderClient {
         error instanceof Error ? error : new Error(String(error))
       );
     }
+  }
+
+  /**
+   * Clear all cached data
+   */
+  public clearCache(): void {
+    this.cache.clear();
+  }
+
+  /**
+   * Get cache statistics
+   */
+  public getCacheStats(): { size: number; entries: string[] } {
+    return {
+      size: this.cache.size,
+      entries: Array.from(this.cache.keys()),
+    };
   }
 
   /**

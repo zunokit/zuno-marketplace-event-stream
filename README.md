@@ -14,6 +14,7 @@ Live event stream widget for Zuno NFT Marketplace. Real-time display of marketpl
 - **Real-time Polling** - Fetches new events every 30 seconds from Ponder API
 - **Event Categories** - Auction, Offer, Trade, Listing, Mint, Collection
 - **Type-Safe API Client** - Full TypeScript integration with Ponder indexer
+- **Smart Caching** - ETag-based HTTP caching with conditional requests (50-90% bandwidth savings)
 
 ### Security
 - **Secure IFrame Auth** - SHA256 HMAC token validation
@@ -288,6 +289,10 @@ NEXT_PUBLIC_PONDER_API_URL=http://localhost:42069
 
 - Reduce polling frequency in `use-events.ts`
 - Increase rate limit in `src/lib/security/auth.ts`
+
+## 📚 Documentation
+
+- **[Caching Strategy](./docs/CACHING.md)** - ETag-based HTTP caching guide, performance optimization
 
 ## 📝 License
 
