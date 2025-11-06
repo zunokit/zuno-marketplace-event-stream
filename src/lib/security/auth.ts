@@ -105,14 +105,22 @@ export function validateToken(
 
 /**
  * Generate HMAC SHA256 token
+ *
+ * Uses HMAC (Hash-based Message Authentication Code) instead of plain SHA256
+ * to prevent length extension attacks and ensure cryptographic integrity.
+ *
+ * @param nonce - Unique random string to prevent replay attacks
+ * @param timestamp - Unix timestamp in seconds for token expiration
+ * @param secret - Secret key for HMAC (must be kept secure server-side)
+ * @returns Hex-encoded HMAC-SHA256 digest
  */
 export function generateToken(
   nonce: string,
   timestamp: number,
   secret: string
 ): string {
-  const message = `${secret}:${nonce}:${timestamp}`;
-  return crypto.createHash("sha256").update(message).digest("hex");
+  const message = `${nonce}:${timestamp}`;
+  return crypto.createHmac("sha256", secret).update(message).digest("hex");
 }
 
 /**
