@@ -98,9 +98,9 @@ export class PonderClient {
     const timeoutId = setTimeout(() => controller.abort(), this.config.timeout);
 
     try {
-      const headers: HeadersInit = {
+      const headers: Record<string, string> = {
         "Content-Type": "application/json",
-        ...options.headers,
+        ...(options.headers as Record<string, string>),
       };
 
       if (this.config.apiKey) {
@@ -198,11 +198,29 @@ export class PonderClient {
 }
 
 // ============================================================================
-// Singleton Instance
+// Singleton Instance (DEPRECATED)
+// ============================================================================
+//
+// ⚠️  DEPRECATED: Use PonderProvider + usePonderClient() instead
+//
+// The singleton pattern is being phased out in favor of React Context.
+// These functions are kept for backwards compatibility but will be removed
+// in a future version.
+//
+// Migration guide:
+// 1. Wrap your app with <PonderProvider>
+// 2. Use usePonderClient() hook in components
+// 3. Remove calls to getPonderClient() and fetchLatestEvents()
+//
+// See: src/lib/providers/ponder-provider.tsx
+//
 // ============================================================================
 
 let clientInstance: PonderClient | null = null;
 
+/**
+ * @deprecated Use PonderProvider + usePonderClient() instead
+ */
 export function getPonderClient(): PonderClient {
   if (!clientInstance) {
     const baseUrl = process.env.NEXT_PUBLIC_PONDER_API_URL;
@@ -224,9 +242,15 @@ export function getPonderClient(): PonderClient {
 }
 
 // ============================================================================
-// Convenience Functions
+// Convenience Functions (DEPRECATED)
 // ============================================================================
 
+/**
+ * @deprecated Use PonderProvider + usePonderClient() instead
+ * @example
+ * const client = usePonderClient();
+ * const events = await client.getActivity(limit);
+ */
 export async function fetchLatestEvents(
   limit = 50
 ): Promise<PonderEvent[]> {
@@ -234,6 +258,12 @@ export async function fetchLatestEvents(
   return client.getActivity(limit);
 }
 
+/**
+ * @deprecated Use PonderProvider + usePonderClient() instead
+ * @example
+ * const client = usePonderClient();
+ * const events = await client.getEvents({ category, limit });
+ */
 export async function fetchEventsByCategory(
   category: PonderEvent["category"],
   limit = 50
