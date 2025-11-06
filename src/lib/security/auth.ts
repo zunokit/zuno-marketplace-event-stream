@@ -111,8 +111,8 @@ export function generateToken(
   timestamp: number,
   secret: string
 ): string {
-  const message = `${secret}:${nonce}:${timestamp}`;
-  return crypto.createHash("sha256").update(message).digest("hex");
+  const message = `${nonce}:${timestamp}`;
+  return crypto.createHmac("sha256", secret).update(message).digest("hex");
 }
 
 /**

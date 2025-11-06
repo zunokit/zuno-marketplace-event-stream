@@ -27,8 +27,8 @@ function generateToken(): {
   const timestamp = Math.floor(Date.now() / 1000);
 
   // Generate token (SHA256 HMAC)
-  const message = `${SECRET}:${nonce}:${timestamp}`;
-  const token = crypto.createHash("sha256").update(message).digest("hex");
+  const message = `${nonce}:${timestamp}`;
+  const token = crypto.createHmac("sha256", SECRET).update(message).digest("hex");
 
   // Build URL
   const params = new URLSearchParams({
