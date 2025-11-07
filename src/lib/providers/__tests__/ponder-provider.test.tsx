@@ -75,25 +75,22 @@ describe("PonderProvider", () => {
       );
     });
 
-    it("should throw error when neither baseUrl prop nor env var is set", () => {
+    it("should render error UI when neither baseUrl prop nor env var is set", () => {
       delete process.env.NEXT_PUBLIC_PONDER_API_URL;
 
-      // Suppress console.error for this test
-      const consoleErrorSpy = jest
-        .spyOn(console, "error")
-        .mockImplementation(() => {});
-
-      expect(() => {
-        render(
-          <PonderProvider>
-            <div>Test Child</div>
-          </PonderProvider>
-        );
-      }).toThrow(
-        "PonderProvider: NEXT_PUBLIC_PONDER_API_URL must be configured"
+      render(
+        <PonderProvider>
+          <div>Test Child</div>
+        </PonderProvider>
       );
 
-      consoleErrorSpy.mockRestore();
+      // Should render error UI instead of throwing
+      expect(screen.getByText("Configuration Error")).toBeInTheDocument();
+      expect(
+        screen.getByText("NEXT_PUBLIC_PONDER_API_URL must be configured")
+      ).toBeInTheDocument();
+      // Should not render children when configuration is missing
+      expect(screen.queryByText("Test Child")).not.toBeInTheDocument();
     });
 
     it("should pass apiKey from props to PonderClient", () => {
