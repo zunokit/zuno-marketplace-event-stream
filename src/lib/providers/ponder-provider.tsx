@@ -3,8 +3,7 @@
 import {
   createContext,
   useContext,
-  useState,
-  useEffect,
+  useMemo,
   type ReactNode,
 } from "react";
 import { PonderClient } from "@/lib/services/ponder-client";
@@ -15,7 +14,6 @@ import { PonderClient } from "@/lib/services/ponder-client";
 
 interface PonderContextValue {
   client: PonderClient;
-  isReady: boolean;
 }
 
 const PonderContext = createContext<PonderContextValue | null>(null);
@@ -45,6 +43,8 @@ interface PonderProviderProps {
  *   <App />
  * </PonderProvider>
  * ```
+ *
+ * @throws Error if NEXT_PUBLIC_PONDER_API_URL is not configured
  */
 export function PonderProvider({
   children,
@@ -54,38 +54,33 @@ export function PonderProvider({
   enableCache,
   cacheMaxAge,
 }: PonderProviderProps) {
-  const [client, setClient] = useState<PonderClient | null>(null);
-  const [isReady, setIsReady] = useState(false);
-
-  useEffect(() => {
+  // Memoize client instance to prevent unnecessary recreations
+  const client = useMemo(() => {
     // Get config from props or environment variables
-    const config = {
-      baseUrl: baseUrl || process.env.NEXT_PUBLIC_PONDER_API_URL || "",
-      apiKey: apiKey || process.env.NEXT_PUBLIC_PONDER_API_KEY,
-      timeout,
-      enableCache,
-      cacheMaxAge,
-    };
+    const finalBaseUrl = baseUrl || process.env.NEXT_PUBLIC_PONDER_API_URL;
+    const finalApiKey = apiKey || process.env.NEXT_PUBLIC_PONDER_API_KEY;
 
-    if (!config.baseUrl) {
-      console.error(
-        "PonderProvider: NEXT_PUBLIC_PONDER_API_URL is not configured"
+    if (!finalBaseUrl) {
+      throw new Error(
+        "PonderProvider: NEXT_PUBLIC_PONDER_API_URL must be configured. " +
+        "See .env.example for setup instructions."
       );
-      return;
     }
 
     // Create client instance
-    const newClient = new PonderClient(config);
-    setClient(newClient);
-    setIsReady(true);
+    return new PonderClient({
+      baseUrl: finalBaseUrl,
+      apiKey: finalApiKey,
+      timeout,
+      enableCache,
+      cacheMaxAge,
+    });
   }, [baseUrl, apiKey, timeout, enableCache, cacheMaxAge]);
 
-  if (!client || !isReady) {
-    return null; // or loading spinner
-  }
+  const value = useMemo(() => ({ client }), [client]);
 
   return (
-    <PonderContext.Provider value={{ client, isReady }}>
+    <PonderContext.Provider value={value}>
       {children}
     </PonderContext.Provider>
   );
