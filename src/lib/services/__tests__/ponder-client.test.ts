@@ -1,6 +1,5 @@
 import { PonderClient, PonderClientError } from "../ponder-client";
 import { HTTP_CACHE_MAX_ENTRIES } from "@/lib/constants";
-
 global.fetch = jest.fn();
 
 describe("PonderClient", () => {
