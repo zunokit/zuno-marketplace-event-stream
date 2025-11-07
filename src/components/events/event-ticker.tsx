@@ -36,7 +36,7 @@ export function EventTicker({
     if (!autoScroll || displayEvents.length === 0) return;
 
     const timer = setInterval(() => {
-      setCurrentIndex((prev) => {
+      setCurrentIndex((prev: number) => {
         const next = prev + 1;
         if (next >= displayEvents.length) {
           return 0; // Loop back to start
@@ -73,7 +73,7 @@ export function EventTicker({
       style={{ height: "480px" }} // Show ~10 events at once
     >
       <div className="space-y-0">
-        {displayEvents.map((event, index) => (
+        {displayEvents.map((event: PonderEvent, index: number) => (
           <EventItem key={event.id} event={event} index={index} />
         ))}
       </div>
