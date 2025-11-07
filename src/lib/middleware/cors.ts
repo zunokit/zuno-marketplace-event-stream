@@ -5,6 +5,7 @@
  */
 
 import { NextResponse } from "next/server";
+import { DEV_ORIGINS } from "@/lib/constants";
 
 /**
  * Add CORS headers in development mode
@@ -19,9 +20,9 @@ export function allowCorsInDev(
     return response;
   }
 
-  const allowedOrigins =
+  const allowedOrigins: string[] =
     process.env.NEXT_PUBLIC_ALLOWED_ORIGINS?.split(",").map((o) => o.trim()) ||
-    ["http://localhost:3000", "http://localhost:3001"];
+    [...DEV_ORIGINS];
 
   if (origin && allowedOrigins.includes(origin)) {
     response.headers.set("Access-Control-Allow-Origin", origin);

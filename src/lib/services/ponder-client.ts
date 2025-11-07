@@ -8,6 +8,8 @@
  * - Automatic 304 Not Modified handling
  */
 
+import { API_TIMEOUT_MS } from "@/lib/constants";
+
 // ============================================================================
 // Types
 // ============================================================================
@@ -97,9 +99,9 @@ export class PonderClient {
     this.config = {
       baseUrl: config.baseUrl,
       apiKey: config.apiKey || "",
-      timeout: config.timeout || 10000,
       enableCache: config.enableCache ?? true,
       cacheMaxAge: config.cacheMaxAge || 60000, // 60 seconds default
+      timeout: config.timeout || API_TIMEOUT_MS,
     };
     this.cache = new Map();
   }
@@ -323,7 +325,7 @@ export function getPonderClient(): PonderClient {
     clientInstance = new PonderClient({
       baseUrl,
       apiKey: process.env.NEXT_PUBLIC_PONDER_API_KEY,
-      timeout: 10000,
+      timeout: API_TIMEOUT_MS,
     });
   }
 
