@@ -6,6 +6,12 @@ import {
   PonderClientError,
 } from "@/lib/services/ponder-client";
 import { usePonderClient } from "@/lib/providers/ponder-provider";
+import {
+  POLLING_INTERVAL_MS,
+  CACHE_STALE_TIME_MS,
+  CACHE_GC_TIME_MS,
+  MAX_RETRY_DELAY_MS,
+} from "@/lib/constants";
 
 export interface UseEventsResult {
   events: PonderEvent[];
@@ -31,7 +37,7 @@ export interface UseEventsOptions {
 export function useEvents(options: UseEventsOptions = {}): UseEventsResult {
   const {
     limit = 50,
-    refetchInterval = 30000, // 30 seconds
+    refetchInterval = POLLING_INTERVAL_MS,
     enabled = true,
   } = options;
 
@@ -49,11 +55,11 @@ export function useEvents(options: UseEventsOptions = {}): UseEventsResult {
     queryFn: () => client.getActivity(limit),
     refetchInterval,
     refetchIntervalInBackground: false,
-    staleTime: 25000, // Consider data stale after 25s (slightly less than refetch)
-    gcTime: 60000, // Keep cache for 60s
+    staleTime: CACHE_STALE_TIME_MS,
+    gcTime: CACHE_GC_TIME_MS,
     enabled,
     retry: 3,
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, 10000), // Exponential backoff: 1s, 2s, 4s, max 10s
+    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, MAX_RETRY_DELAY_MS),
   });
 
   return {

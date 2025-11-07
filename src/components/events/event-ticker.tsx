@@ -3,6 +3,11 @@
 import { useEffect, useRef, useState } from "react";
 import { EventItem } from "./event-item";
 import type { PonderEvent } from "@/lib/services/ponder-client";
+import {
+  TICKER_SCROLL_INTERVAL_MS,
+  EVENT_ITEM_HEIGHT_PX,
+  TICKER_CONTAINER_HEIGHT_PX,
+} from "@/lib/constants";
 
 interface EventTickerProps {
   events: PonderEvent[];
@@ -17,7 +22,7 @@ interface EventTickerProps {
 export function EventTicker({
   events,
   autoScroll = true,
-  scrollInterval = 3000, // 3 seconds per event
+  scrollInterval = TICKER_SCROLL_INTERVAL_MS,
 }: EventTickerProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const [displayEvents, setDisplayEvents] = useState<PonderEvent[]>([]);
@@ -36,7 +41,7 @@ export function EventTicker({
     if (!autoScroll || displayEvents.length === 0) return;
 
     const timer = setInterval(() => {
-      setCurrentIndex((prev) => {
+      setCurrentIndex((prev: number) => {
         const next = prev + 1;
         if (next >= displayEvents.length) {
           return 0; // Loop back to start
@@ -53,8 +58,7 @@ export function EventTicker({
     if (!containerRef.current || displayEvents.length === 0) return;
 
     const container = containerRef.current;
-    const itemHeight = 48; // Approximate height of one event item
-    const targetScroll = currentIndex * itemHeight;
+    const targetScroll = currentIndex * EVENT_ITEM_HEIGHT_PX;
 
     container.scrollTo({
       top: targetScroll,
@@ -70,10 +74,10 @@ export function EventTicker({
     <div
       ref={containerRef}
       className="relative w-full overflow-hidden"
-      style={{ height: "480px" }} // Show ~10 events at once
+      style={{ height: `${TICKER_CONTAINER_HEIGHT_PX}px` }}
     >
       <div className="space-y-0">
-        {displayEvents.map((event, index) => (
+        {displayEvents.map((event: PonderEvent, index: number) => (
           <EventItem key={event.id} event={event} index={index} />
         ))}
       </div>

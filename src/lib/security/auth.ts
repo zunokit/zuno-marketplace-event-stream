@@ -1,4 +1,11 @@
 import crypto from "crypto";
+import {
+  TIMESTAMP_SKEW_SECONDS,
+  MIN_SECRET_LENGTH,
+  RATE_LIMIT_WINDOW_MS,
+  RATE_LIMIT_MAX_REQUESTS,
+  RATE_LIMIT_MAX_STORE_SIZE,
+} from "@/lib/constants";
 
 /**
  * Security utilities for iframe authentication
@@ -50,13 +57,6 @@ export interface ValidationResult {
 }
 
 // ============================================================================
-// Constants
-// ============================================================================
-
-const DEFAULT_SKEW_SECONDS = 300; // 5 minutes
-const MIN_SECRET_LENGTH = 32;
-
-// ============================================================================
 // Token Validation
 // ============================================================================
 
@@ -66,7 +66,7 @@ const MIN_SECRET_LENGTH = 32;
 export function validateToken(
   params: TokenParams,
   secret: string,
-  skewSeconds = DEFAULT_SKEW_SECONDS
+  skewSeconds = TIMESTAMP_SKEW_SECONDS
 ): ValidationResult {
   // 1. Check secret
   if (!secret || secret.length < MIN_SECRET_LENGTH) {
@@ -111,8 +111,8 @@ export function generateToken(
   timestamp: number,
   secret: string
 ): string {
-  const message = `${secret}:${nonce}:${timestamp}`;
-  return crypto.createHash("sha256").update(message).digest("hex");
+  const message = `${nonce}:${timestamp}`;
+  return crypto.createHmac("sha256", secret).update(message).digest("hex");
 }
 
 /**
@@ -120,7 +120,7 @@ export function generateToken(
  */
 export function isWithinSkew(
   timestamp: number,
-  skewSeconds = DEFAULT_SKEW_SECONDS
+  skewSeconds = TIMESTAMP_SKEW_SECONDS
 ): boolean {
   const now = Math.floor(Date.now() / 1000);
   const diff = Math.abs(now - timestamp);
@@ -130,6 +130,26 @@ export function isWithinSkew(
 // ============================================================================
 // Rate Limiting (Simple In-Memory)
 // ============================================================================
+//
+// ⚠️  PRODUCTION WARNING: This is an in-memory rate limiter with limitations:
+//
+// 1. Data is lost on server restart
+// 2. Does NOT work with horizontal scaling (multiple instances)
+// 3. Each instance maintains its own separate counter
+// 4. Memory can grow unbounded under high traffic
+//
+// For production deployments, consider:
+// - Redis-based rate limiting (e.g., ioredis + rate-limiter-flexible)
+// - Upstash Rate Limiting (@upstash/ratelimit)
+// - Cloudflare Rate Limiting
+// - API Gateway rate limiting (AWS, GCP, Azure)
+//
+// This implementation is suitable for:
+// - Development environments
+// - Single-instance deployments
+// - Low-traffic applications
+//
+// ============================================================================
 
 interface RateLimitEntry {
   count: number;
@@ -137,8 +157,6 @@ interface RateLimitEntry {
 }
 
 const rateLimitStore = new Map<string, RateLimitEntry>();
-const RATE_LIMIT_WINDOW = 60 * 1000; // 1 minute
-const RATE_LIMIT_MAX = 60; // 60 requests per minute
 
 /**
  * Check rate limit for IP address
@@ -152,7 +170,7 @@ export function checkRateLimit(identifier: string): {
   const entry = rateLimitStore.get(identifier);
 
   // Clean up expired entries periodically
-  if (rateLimitStore.size > 10000) {
+  if (rateLimitStore.size > RATE_LIMIT_MAX_STORE_SIZE) {
     for (const [key, value] of rateLimitStore.entries()) {
       if (value.resetAt < now) {
         rateLimitStore.delete(key);
@@ -162,13 +180,13 @@ export function checkRateLimit(identifier: string): {
 
   if (!entry || entry.resetAt < now) {
     // Create new entry
-    const resetAt = now + RATE_LIMIT_WINDOW;
+    const resetAt = now + RATE_LIMIT_WINDOW_MS;
     rateLimitStore.set(identifier, { count: 1, resetAt });
-    return { allowed: true, remaining: RATE_LIMIT_MAX - 1, resetAt };
+    return { allowed: true, remaining: RATE_LIMIT_MAX_REQUESTS - 1, resetAt };
   }
 
   // Check if limit exceeded
-  if (entry.count >= RATE_LIMIT_MAX) {
+  if (entry.count >= RATE_LIMIT_MAX_REQUESTS) {
     return { allowed: false, remaining: 0, resetAt: entry.resetAt };
   }
 
@@ -178,7 +196,7 @@ export function checkRateLimit(identifier: string): {
 
   return {
     allowed: true,
-    remaining: RATE_LIMIT_MAX - entry.count,
+    remaining: RATE_LIMIT_MAX_REQUESTS - entry.count,
     resetAt: entry.resetAt,
   };
 }

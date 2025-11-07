@@ -5,6 +5,7 @@ import { useEvents } from "@/hooks/use-events";
 import { EventTicker } from "./event-ticker";
 import { EventEmpty } from "./event-empty";
 import { formatDistanceToNow } from "date-fns";
+import { POLLING_INTERVAL_MS } from "@/lib/constants";
 
 interface EventFeedProps {
   limit?: number;
@@ -18,7 +19,7 @@ interface EventFeedProps {
 export function EventFeed({ limit = 50, autoScroll = true }: EventFeedProps) {
   const { events, isLoading, isError, error, lastUpdated } = useEvents({
     limit,
-    refetchInterval: 30000, // 30 seconds
+    refetchInterval: POLLING_INTERVAL_MS,
   });
 
   return (

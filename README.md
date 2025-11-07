@@ -14,6 +14,7 @@ Live event stream widget for Zuno NFT Marketplace. Real-time display of marketpl
 - **Real-time Polling** - Fetches new events every 30 seconds from Ponder API
 - **Event Categories** - Auction, Offer, Trade, Listing, Mint, Collection
 - **Type-Safe API Client** - Full TypeScript integration with Ponder indexer
+- **Smart Caching** - ETag-based HTTP caching with conditional requests (50-90% bandwidth savings)
 
 ### Security
 - **Secure IFrame Auth** - SHA256 HMAC token validation
@@ -245,6 +246,81 @@ RUN pnpm build
 CMD ["pnpm", "start"]
 ```
 
+## ⚠️ Production Considerations
+
+### Rate Limiting
+
+The current implementation uses **in-memory rate limiting**, which has important limitations:
+
+**Limitations:**
+- ❌ Rate limit counters reset on server restart
+- ❌ Does NOT work with horizontal scaling (load balancers, multiple instances)
+- ❌ Each server instance maintains separate counters
+- ❌ Memory can grow under high traffic
+
+**Suitable for:**
+- ✅ Development environments
+- ✅ Single-instance deployments
+- ✅ Low-traffic applications (<100 req/min)
+
+**Production Recommendations:**
+
+For production deployments with multiple instances or high traffic, migrate to:
+
+1. **Redis-based Rate Limiting** (recommended)
+   ```bash
+   npm install ioredis rate-limiter-flexible
+   ```
+
+2. **Upstash Rate Limiting** (serverless-friendly)
+   ```bash
+   npm install @upstash/ratelimit @upstash/redis
+   ```
+
+3. **Infrastructure-level Rate Limiting**
+   - Cloudflare Rate Limiting Rules
+   - AWS API Gateway throttling
+   - Nginx rate limiting
+   - Load balancer rate limiting
+
+**Migration Guide:**
+
+To migrate to Redis, update `src/lib/security/auth.ts`:
+
+```typescript
+import { Redis } from 'ioredis';
+import { RateLimiterRedis } from 'rate-limiter-flexible';
+
+const redis = new Redis(process.env.REDIS_URL);
+const rateLimiter = new RateLimiterRedis({
+  storeClient: redis,
+  points: 60, // 60 requests
+  duration: 60, // per 60 seconds
+  keyPrefix: 'iframe-auth',
+});
+
+export async function checkRateLimit(identifier: string) {
+  try {
+    const result = await rateLimiter.consume(identifier);
+    return {
+      allowed: true,
+      remaining: result.remainingPoints,
+      resetAt: Date.now() + result.msBeforeNext,
+    };
+  } catch (error) {
+    return { allowed: false, remaining: 0, resetAt: Date.now() + 60000 };
+  }
+}
+```
+
+### Other Production Best Practices
+
+- **Monitoring**: Add logging and metrics for rate limit hits
+- **Scaling**: Use Redis Cluster for high-availability rate limiting
+- **Security**: Regularly rotate `IFRAME_API_SECRET`
+- **Performance**: Enable CDN caching for static assets
+- **Observability**: Set up error tracking (Sentry, etc.)
+
 ## 🧪 Testing
 
 ### Manual Testing
@@ -289,6 +365,10 @@ NEXT_PUBLIC_PONDER_API_URL=http://localhost:42069
 - Reduce polling frequency in `use-events.ts`
 - Increase rate limit in `src/lib/security/auth.ts`
 
+## 📚 Documentation
+
+- **[Caching Strategy](./docs/CACHING.md)** - ETag-based HTTP caching guide, performance optimization
+
 ## 📝 License
 
 MIT License - see [LICENSE](LICENSE) file
@@ -302,6 +382,26 @@ Contributions welcome! Please follow:
 3. Commit changes: `git commit -m 'feat: add amazing feature'`
 4. Push to branch: `git push origin feature/amazing-feature`
 5. Open Pull Request
+
+## 📚 Documentation
+
+- **[API Documentation](./docs/API.md)** - Complete API reference, authentication, error codes
+- **[Architecture Guide](./docs/ARCHITECTURE.md)** - System design, data flow, security architecture
+
+## 🧪 Testing
+
+Run tests:
+```bash
+pnpm test              # Run all tests
+pnpm test:ui           # Run with UI
+pnpm test:coverage     # Generate coverage report
+```
+
+Test coverage focuses on security-critical code:
+- ✅ Token generation & validation
+- ✅ Rate limiting logic
+- ✅ Origin checking
+- ✅ Parameter parsing
 
 ---
 
