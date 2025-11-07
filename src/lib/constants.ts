@@ -40,6 +40,30 @@ export const CACHE_GC_TIME_MS = 60_000;
 export const MAX_RETRY_DELAY_MS = 10_000;
 
 // ============================================================================
+// HTTP Cache Configuration
+// ============================================================================
+
+/**
+ * HTTP cache maximum age (milliseconds)
+ * Duration that cached responses remain valid
+ * @default 60000 (60 seconds)
+ */
+export const HTTP_CACHE_MAX_AGE_MS = 60_000;
+
+/**
+ * Maximum number of entries in HTTP cache
+ * Triggers automatic cleanup when exceeded
+ * @default 100
+ */
+export const HTTP_CACHE_MAX_ENTRIES = 100;
+
+/**
+ * Enable ETag-based HTTP caching
+ * @default true
+ */
+export const HTTP_CACHE_ENABLED = true;
+
+// ============================================================================
 // UI/Animation Configuration
 // ============================================================================
 

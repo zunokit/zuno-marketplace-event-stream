@@ -1,13 +1,35 @@
 /**
  * Ponder API Client
  * Type-safe client for fetching events from Zuno Marketplace Indexer
+ *
+ * Features:
+ * - ETag-based caching for bandwidth optimization
+ * - Conditional GET requests (If-None-Match)
+ * - Automatic 304 Not Modified handling
  */
 
-import { API_TIMEOUT_MS } from "@/lib/constants";
+import {
+  API_TIMEOUT_MS,
+  HTTP_CACHE_ENABLED,
+  HTTP_CACHE_MAX_AGE_MS,
+  HTTP_CACHE_MAX_ENTRIES,
+} from "@/lib/constants";
 
 // ============================================================================
 // Types
 // ============================================================================
+
+interface CacheEntry<T> {
+  etag: string;
+  data: T;
+  timestamp: number;
+}
+
+interface CacheMetrics {
+  hits: number;
+  misses: number;
+  evictions: number;
+}
 
 export interface PonderEvent {
   id: string;
@@ -48,6 +70,8 @@ export interface PonderClientConfig {
   baseUrl: string;
   apiKey?: string;
   timeout?: number;
+  enableCache?: boolean;
+  cacheMaxAge?: number; // milliseconds
 }
 
 export interface FetchEventsOptions {
@@ -80,22 +104,108 @@ export class PonderClientError extends Error {
 
 export class PonderClient {
   private config: Required<PonderClientConfig>;
+  private cache: Map<string, CacheEntry<unknown>>;
+  private metrics: CacheMetrics;
 
   constructor(config: PonderClientConfig) {
     this.config = {
       baseUrl: config.baseUrl,
       apiKey: config.apiKey || "",
-      timeout: config.timeout || API_TIMEOUT_MS,
+      enableCache: config.enableCache ?? HTTP_CACHE_ENABLED,
+      cacheMaxAge: config.cacheMaxAge ?? HTTP_CACHE_MAX_AGE_MS,
+      timeout: config.timeout ?? API_TIMEOUT_MS,
+    };
+    this.cache = new Map();
+    this.metrics = {
+      hits: 0,
+      misses: 0,
+      evictions: 0,
     };
   }
 
   /**
+   * Clear expired cache entries
+   */
+  private cleanupCache(): void {
+    const now = Date.now();
+    let evictionCount = 0;
+
+    for (const [key, entry] of this.cache.entries()) {
+      if (now - entry.timestamp > this.config.cacheMaxAge) {
+        this.cache.delete(key);
+        evictionCount++;
+      }
+    }
+
+    this.metrics.evictions += evictionCount;
+  }
+
+  /**
+   * Generate cache key from endpoint and options
+   */
+  private generateCacheKey(endpoint: string, options: RequestInit): string {
+    const method = options.method || "GET";
+    const headers = options.headers as Record<string, string> | undefined;
+    const authHeader = headers?.["Authorization"] || "";
+
+    // Include method and auth in cache key to avoid collisions
+    return `${method}:${endpoint}:${authHeader}`;
+  }
+
+  /**
+   * Get cached data if available and valid
+   */
+  private getCached<T>(key: string): CacheEntry<T> | null {
+    if (!this.config.enableCache) return null;
+
+    const entry = this.cache.get(key);
+    if (!entry) {
+      this.metrics.misses++;
+      return null;
+    }
+
+    // Check if cache is still valid
+    const now = Date.now();
+    if (now - entry.timestamp > this.config.cacheMaxAge) {
+      this.cache.delete(key);
+      this.metrics.evictions++;
+      this.metrics.misses++;
+      return null;
+    }
+
+    this.metrics.hits++;
+    return entry as CacheEntry<T>;
+  }
+
+  /**
+   * Set cache entry
+   */
+  private setCache<T>(key: string, etag: string, data: T): void {
+    if (!this.config.enableCache) return;
+
+    this.cache.set(key, {
+      etag,
+      data,
+      timestamp: Date.now(),
+    });
+
+    // Cleanup old entries periodically
+    if (this.cache.size > HTTP_CACHE_MAX_ENTRIES) {
+      this.cleanupCache();
+    }
+  }
+
+  /**
    * Generic fetch wrapper with timeout and error handling
+   * Supports ETag-based caching with conditional requests
    */
   private async fetch<T>(
     endpoint: string,
     options: RequestInit = {}
   ): Promise<T> {
+    const cacheKey = this.generateCacheKey(endpoint, options);
+    const cached = this.getCached<T>(cacheKey);
+
     const controller = new AbortController();
     const timeoutId = setTimeout(() => controller.abort(), this.config.timeout);
 
@@ -109,6 +219,11 @@ export class PonderClient {
         headers["Authorization"] = `Bearer ${this.config.apiKey}`;
       }
 
+      // Add If-None-Match header if we have cached ETag
+      if (cached?.etag) {
+        headers["If-None-Match"] = cached.etag;
+      }
+
       const response = await fetch(`${this.config.baseUrl}${endpoint}`, {
         ...options,
         headers,
@@ -116,6 +231,20 @@ export class PonderClient {
       });
 
       clearTimeout(timeoutId);
+
+      // Handle 304 Not Modified - return cached data
+      if (response.status === 304) {
+        if (cached) {
+          // Update timestamp to extend cache validity
+          cached.timestamp = Date.now();
+          return cached.data;
+        }
+        // Fallback: log warning and return empty response
+        console.warn(
+          "[PonderClient] Received 304 Not Modified without cached data, returning null"
+        );
+        return null as T;
+      }
 
       if (!response.ok) {
         throw new PonderClientError(
@@ -125,6 +254,13 @@ export class PonderClient {
       }
 
       const data = await response.json();
+
+      // Store ETag if present
+      const etag = response.headers.get("ETag");
+      if (etag) {
+        this.setCache(cacheKey, etag, data);
+      }
+
       return data as T;
     } catch (error) {
       clearTimeout(timeoutId);
@@ -143,6 +279,39 @@ export class PonderClient {
         error instanceof Error ? error : new Error(String(error))
       );
     }
+  }
+
+  /**
+   * Clear all cached data
+   */
+  public clearCache(): void {
+    this.cache.clear();
+    // Reset metrics
+    this.metrics = {
+      hits: 0,
+      misses: 0,
+      evictions: 0,
+    };
+  }
+
+  /**
+   * Get cache statistics
+   */
+  public getCacheStats(): {
+    size: number;
+    entries: string[];
+    metrics: CacheMetrics;
+    hitRate: number;
+  } {
+    const totalRequests = this.metrics.hits + this.metrics.misses;
+    const hitRate = totalRequests > 0 ? this.metrics.hits / totalRequests : 0;
+
+    return {
+      size: this.cache.size,
+      entries: Array.from(this.cache.keys()),
+      metrics: { ...this.metrics },
+      hitRate: Math.round(hitRate * 100) / 100, // Round to 2 decimal places
+    };
   }
 
   /**
