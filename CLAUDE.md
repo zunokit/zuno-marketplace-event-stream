@@ -49,8 +49,9 @@ pnpm generate-token             # CLI tool to generate iframe auth tokens (scrip
 Parent Website (with HMAC token)
     ↓ iframe embed with token
 Next.js App (page.tsx validates token via /api/iframe-auth)
+    ↓ PonderProvider (React Context, wraps app in layout.tsx)
     ↓ useEvents hook (TanStack Query, 30s polling)
-PonderClient (src/lib/services/ponder-client.ts)
+    ↓ usePonderClient() hook → PonderClient instance
     ↓ HTTP GET /api/activity?limit=50
 Ponder Indexer API (localhost:42069 in dev)
     ↓ indexed blockchain events
@@ -96,11 +97,15 @@ Event Components (EventFeed → EventTicker → EventItem)
 - `src/app/api/iframe-auth/route.ts`: API endpoint that validates tokens (GET /api/iframe-auth)
 
 **Data Fetching:**
+- `src/lib/providers/ponder-provider.tsx`: PonderProvider (React Context) for client instance management
+  - Use `usePonderClient()` hook to access client in components
+  - Replaces singleton pattern for better testability and dependency injection
+  - Wraps application in `src/app/layout.tsx`
 - `src/lib/services/ponder-client.ts`: PonderClient class for HTTP requests to Ponder API
-  - Singleton pattern: use `getPonderClient()` function
   - Methods: `getActivity(limit)`, `getEvents(options)`, `healthCheck()`
   - Built-in timeout, retry, and ETag caching
 - `src/hooks/use-events.ts`: React hook wrapping TanStack Query for event polling
+  - Uses `usePonderClient()` to access client instance
 
 **UI Components:**
 - `src/app/page.tsx`: Main page with auth logic (validates token on mount)
@@ -118,7 +123,7 @@ TypeScript path alias `@/*` maps to `src/*` (configured in `tsconfig.json`).
 
 Example:
 ```typescript
-import { getPonderClient } from '@/lib/services/ponder-client';
+import { usePonderClient } from '@/lib/providers/ponder-provider';
 import { POLLING_INTERVAL_MS } from '@/lib/constants';
 ```
 
@@ -159,6 +164,11 @@ Test files should be placed in `src/**/__tests__/*.test.ts` or next to source fi
   - Timestamp skew validation
   - Origin checking
 - **API client** (`src/lib/services/ponder-client.ts`): Partial coverage (ETag caching tests exist)
+- **PonderProvider** (`src/lib/providers/ponder-provider.tsx`): Full coverage
+  - Provider initialization and configuration
+  - Client memoization and recreation
+  - Hook error boundaries
+  - Integration scenarios
 
 ### Writing Tests
 ```typescript
@@ -169,6 +179,20 @@ describe('validateToken', () => {
   it('should validate correct tokens', () => {
     const result = validateToken({ token, nonce, timestamp }, secret);
     expect(result.valid).toBe(true);
+  });
+});
+
+// Example: Testing React hooks with Context
+import { renderHook } from '@testing-library/react';
+import { PonderProvider, usePonderClient } from '@/lib/providers/ponder-provider';
+
+describe('usePonderClient', () => {
+  it('should return client instance', () => {
+    const wrapper = ({ children }) => (
+      <PonderProvider baseUrl="http://test-api.com">{children}</PonderProvider>
+    );
+    const { result } = renderHook(() => usePonderClient(), { wrapper });
+    expect(result.current).toBeDefined();
   });
 });
 ```
@@ -226,6 +250,34 @@ The current implementation uses **in-memory rate limiting**, which:
 1. Modify constants in `src/lib/constants.ts`
 2. Review impact on `src/hooks/use-events.ts` (TanStack Query config)
 3. Review impact on `src/lib/services/ponder-client.ts` (HTTP cache config)
+
+### Using PonderClient (Context Pattern)
+The application uses React Context for PonderClient dependency injection:
+
+**In Components:**
+```typescript
+import { usePonderClient } from '@/lib/providers/ponder-provider';
+
+function MyComponent() {
+  const client = usePonderClient();
+  const events = await client.getActivity(50);
+  // ...
+}
+```
+
+**In Tests:**
+```typescript
+import { renderHook } from '@testing-library/react';
+import { PonderProvider } from '@/lib/providers/ponder-provider';
+
+const wrapper = ({ children }) => (
+  <PonderProvider baseUrl="http://test-api.com">{children}</PonderProvider>
+);
+
+const { result } = renderHook(() => usePonderClient(), { wrapper });
+```
+
+**Note:** The application fully uses the Context pattern for dependency injection. Singleton functions have been removed.
 
 ### Debugging Tips
 - Check browser console for API errors (PonderClientError messages)

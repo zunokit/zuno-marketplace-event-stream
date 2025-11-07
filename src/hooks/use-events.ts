@@ -2,10 +2,10 @@
 
 import { useQuery } from "@tanstack/react-query";
 import {
-  fetchLatestEvents,
   type PonderEvent,
   PonderClientError,
 } from "@/lib/services/ponder-client";
+import { usePonderClient } from "@/lib/providers/ponder-provider";
 import {
   POLLING_INTERVAL_MS,
   CACHE_STALE_TIME_MS,
@@ -41,6 +41,8 @@ export function useEvents(options: UseEventsOptions = {}): UseEventsResult {
     enabled = true,
   } = options;
 
+  const client = usePonderClient();
+
   const {
     data,
     isLoading,
@@ -50,7 +52,7 @@ export function useEvents(options: UseEventsOptions = {}): UseEventsResult {
     dataUpdatedAt,
   } = useQuery({
     queryKey: ["events", limit],
-    queryFn: () => fetchLatestEvents(limit),
+    queryFn: () => client.getActivity(limit),
     refetchInterval,
     refetchIntervalInBackground: false,
     staleTime: CACHE_STALE_TIME_MS,
