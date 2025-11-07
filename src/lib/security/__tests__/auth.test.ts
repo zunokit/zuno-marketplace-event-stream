@@ -1,4 +1,3 @@
-import { describe, it, expect, beforeEach, vi } from "vitest";
 import {
   generateToken,
   validateToken,
@@ -67,12 +66,16 @@ describe("auth.ts", () => {
     const secret = "test-secret-min-32-characters-long-required";
 
     beforeEach(() => {
-      vi.useFakeTimers();
+      jest.useFakeTimers();
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
     });
 
     it("should validate correct token", () => {
       const now = Date.now();
-      vi.setSystemTime(now);
+      jest.setSystemTime(now);
 
       const timestamp = Math.floor(now / 1000);
       const nonce = "test-nonce";
@@ -87,7 +90,7 @@ describe("auth.ts", () => {
 
     it("should reject invalid token", () => {
       const now = Date.now();
-      vi.setSystemTime(now);
+      jest.setSystemTime(now);
 
       const timestamp = Math.floor(now / 1000);
       const nonce = "test-nonce";
@@ -102,7 +105,7 @@ describe("auth.ts", () => {
 
     it("should reject token with short secret", () => {
       const now = Date.now();
-      vi.setSystemTime(now);
+      jest.setSystemTime(now);
 
       const timestamp = Math.floor(now / 1000);
       const nonce = "test-nonce";
@@ -116,15 +119,16 @@ describe("auth.ts", () => {
     });
 
     it("should reject expired token", () => {
-      const oldTime = Date.now() - 400 * 1000; // 400 seconds ago (> 300s skew)
-      vi.setSystemTime(oldTime);
+      const now = Date.now();
+      const oldTime = now - 400 * 1000; // 400 seconds ago (> 300s skew)
+      jest.setSystemTime(oldTime);
 
       const timestamp = Math.floor(oldTime / 1000);
       const nonce = "test-nonce";
       const token = generateToken(nonce, timestamp, secret);
 
-      // Move time forward
-      vi.setSystemTime(Date.now());
+      // Move time forward to current time
+      jest.setSystemTime(now);
 
       const params: TokenParams = { token, nonce, timestamp };
       const result = validateToken(params, secret);
@@ -179,12 +183,16 @@ describe("auth.ts", () => {
 
   describe("isWithinSkew", () => {
     beforeEach(() => {
-      vi.useFakeTimers();
+      jest.useFakeTimers();
+    });
+
+    afterEach(() => {
+      jest.useRealTimers();
     });
 
     it("should accept timestamp within skew", () => {
       const now = Date.now();
-      vi.setSystemTime(now);
+      jest.setSystemTime(now);
 
       const timestamp = Math.floor(now / 1000) - 100; // 100 seconds ago
       expect(isWithinSkew(timestamp)).toBe(true);
@@ -192,7 +200,7 @@ describe("auth.ts", () => {
 
     it("should reject timestamp outside skew", () => {
       const now = Date.now();
-      vi.setSystemTime(now);
+      jest.setSystemTime(now);
 
       const timestamp = Math.floor(now / 1000) - 400; // 400 seconds ago
       expect(isWithinSkew(timestamp)).toBe(false);
@@ -200,7 +208,7 @@ describe("auth.ts", () => {
 
     it("should accept future timestamp within skew", () => {
       const now = Date.now();
-      vi.setSystemTime(now);
+      jest.setSystemTime(now);
 
       const timestamp = Math.floor(now / 1000) + 100; // 100 seconds future
       expect(isWithinSkew(timestamp)).toBe(true);
@@ -268,27 +276,34 @@ describe("auth.ts", () => {
   });
 
   describe("isOriginAllowed", () => {
+    const originalEnv = process.env;
+
+    beforeEach(() => {
+      jest.resetModules();
+      process.env = { ...originalEnv };
+    });
+
+    afterEach(() => {
+      process.env = originalEnv;
+    });
+
     it("should reject null origin", () => {
       const result = isOriginAllowed(null);
       expect(result).toBe(false);
     });
 
     it("should allow localhost in development", () => {
-      vi.stubEnv("NODE_ENV", "development");
+      process.env.NODE_ENV = "development";
 
       expect(isOriginAllowed("http://localhost:3000")).toBe(true);
       expect(isOriginAllowed("http://127.0.0.1:3000")).toBe(true);
-
-      vi.unstubAllEnvs();
     });
 
     it("should check against allowed origins list", () => {
-      vi.stubEnv("NEXT_PUBLIC_ALLOWED_ORIGINS", "https://example.com");
+      process.env.NEXT_PUBLIC_ALLOWED_ORIGINS = "https://example.com";
 
       expect(isOriginAllowed("https://example.com")).toBe(true);
       expect(isOriginAllowed("https://evil.com")).toBe(false);
-
-      vi.unstubAllEnvs();
     });
   });
 });
