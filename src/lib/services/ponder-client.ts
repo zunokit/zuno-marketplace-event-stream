@@ -104,7 +104,7 @@ export class PonderClientError extends Error {
 
 export class PonderClient {
   private config: Required<PonderClientConfig>;
-  private cache: Map<string, CacheEntry<any>>;
+  private cache: Map<string, CacheEntry<unknown>>;
   private metrics: CacheMetrics;
 
   constructor(config: PonderClientConfig) {

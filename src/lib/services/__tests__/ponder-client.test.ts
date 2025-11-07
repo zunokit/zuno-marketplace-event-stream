@@ -1,7 +1,6 @@
 import { PonderClient, PonderClientError } from "../ponder-client";
 import { HTTP_CACHE_MAX_ENTRIES } from "@/lib/constants";
 
-// Mock global fetch
 global.fetch = jest.fn();
 
 describe("PonderClient", () => {
@@ -13,7 +12,7 @@ describe("PonderClient", () => {
     client = new PonderClient({
       baseUrl: mockBaseUrl,
       enableCache: true,
-      cacheMaxAge: 5000, // 5 seconds for testing
+      cacheMaxAge: 5000,
     });
   });
 
@@ -72,7 +71,6 @@ describe("PonderClient", () => {
     });
 
     it("should return cached data on 304 response", async () => {
-      // First request - cache miss
       (global.fetch as jest.Mock).mockResolvedValueOnce({
         ok: true,
         status: 200,
@@ -84,7 +82,6 @@ describe("PonderClient", () => {
 
       await client.getActivity(50);
 
-      // Second request - should send If-None-Match and get 304
       (global.fetch as jest.Mock).mockResolvedValueOnce({
         ok: false,
         status: 304,
@@ -99,15 +96,13 @@ describe("PonderClient", () => {
       expect(result).toEqual(mockData.data);
       expect(global.fetch).toHaveBeenCalledTimes(2);
 
-      // Check that If-None-Match header was sent
       const secondCall = (global.fetch as jest.Mock).mock.calls[1];
       expect(secondCall[1].headers["If-None-Match"]).toBe('"abc123"');
 
-      // Verify metrics
       const stats = client.getCacheStats();
       expect(stats.metrics.hits).toBe(1);
       expect(stats.metrics.misses).toBe(1);
-      expect(stats.hitRate).toBe(0.5); // 50% hit rate
+      expect(stats.hitRate).toBe(0.5);
     });
 
     it("should update cache when ETag changes", async () => {
@@ -116,7 +111,7 @@ describe("PonderClient", () => {
         data: [{ id: "2", eventType: "updated" }],
       };
 
-      // First request
+
       (global.fetch as jest.Mock).mockResolvedValueOnce({
         ok: true,
         status: 200,
@@ -128,7 +123,7 @@ describe("PonderClient", () => {
 
       await client.getActivity(50);
 
-      // Second request with different ETag
+
       (global.fetch as jest.Mock).mockResolvedValueOnce({
         ok: true,
         status: 200,
@@ -142,7 +137,7 @@ describe("PonderClient", () => {
 
       expect(result).toEqual(updatedData.data);
       const stats = client.getCacheStats();
-      expect(stats.size).toBe(1); // Still one entry, but updated
+      expect(stats.size).toBe(1);
     });
 
     it("should handle requests without ETag gracefully", async () => {
@@ -150,7 +145,7 @@ describe("PonderClient", () => {
         ok: true,
         status: 200,
         headers: {
-          get: () => null, // No ETag
+          get: () => null,
         },
         json: async () => mockData,
       });
@@ -159,7 +154,7 @@ describe("PonderClient", () => {
 
       expect(result).toEqual(mockData.data);
       const stats = client.getCacheStats();
-      expect(stats.size).toBe(0); // Nothing cached without ETag
+      expect(stats.size).toBe(0);
     });
 
     it("should expire cache after cacheMaxAge", async () => {
@@ -176,10 +171,10 @@ describe("PonderClient", () => {
 
       await client.getActivity(50);
 
-      // Fast-forward time past cacheMaxAge (5 seconds)
+
       jest.advanceTimersByTime(6000);
 
-      // Next request should be a cache miss
+
       (global.fetch as jest.Mock).mockResolvedValueOnce({
         ok: true,
         status: 200,
@@ -192,8 +187,8 @@ describe("PonderClient", () => {
       await client.getActivity(50);
 
       const stats = client.getCacheStats();
-      expect(stats.metrics.misses).toBe(2); // Both were misses
-      expect(stats.metrics.evictions).toBe(1); // Expired entry was evicted
+      expect(stats.metrics.misses).toBe(2);
+      expect(stats.metrics.evictions).toBe(1);
 
       jest.useRealTimers();
     });
@@ -203,7 +198,7 @@ describe("PonderClient", () => {
       const now = Date.now();
       jest.setSystemTime(now);
 
-      // Create 20 old entries that will be cleaned
+
       for (let i = 0; i < 20; i++) {
         (global.fetch as jest.Mock).mockResolvedValueOnce({
           ok: true,
@@ -219,11 +214,11 @@ describe("PonderClient", () => {
         });
 
         await client.getActivity(i);
-        // Age these entries
-        jest.advanceTimersByTime(6000); // Older than cacheMaxAge (5s)
+
+        jest.advanceTimersByTime(6000);
       }
 
-      // Now add entries to trigger cleanup
+
       for (let i = 20; i < HTTP_CACHE_MAX_ENTRIES + 10; i++) {
         (global.fetch as jest.Mock).mockResolvedValueOnce({
           ok: true,
@@ -242,7 +237,7 @@ describe("PonderClient", () => {
       }
 
       const stats = client.getCacheStats();
-      // Cache should have been cleaned up (old entries removed)
+
       expect(stats.size).toBeLessThanOrEqual(HTTP_CACHE_MAX_ENTRIES);
       expect(stats.metrics.evictions).toBeGreaterThan(0);
 
@@ -262,8 +257,8 @@ describe("PonderClient", () => {
 
       const warnSpy = jest.spyOn(console, "warn").mockImplementation();
 
-      // The fetch method returns null, but getActivity will try to access .success
-      // So we expect this to throw an error
+
+
       await expect(client.getActivity(50)).rejects.toThrow();
 
       expect(warnSpy).toHaveBeenCalledWith(
@@ -421,7 +416,7 @@ describe("PonderClient", () => {
         PonderClientError
       );
 
-      // Make another request to test the error message
+
       (global.fetch as jest.Mock).mockResolvedValueOnce({
         ok: false,
         status: 500,
@@ -445,12 +440,7 @@ describe("PonderClient", () => {
       );
     });
 
-    // Note: Timeout test skipped due to Jest fake timer issues with AbortController
-    // Timeout functionality is covered by manual testing
     it.skip("should throw PonderClientError on timeout", async () => {
-      // This test is skipped because Jest has issues with fake timers
-      // and AbortController. The timeout functionality works correctly
-      // in practice and can be tested manually.
     });
   });
 });
