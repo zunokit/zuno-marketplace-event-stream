@@ -130,6 +130,26 @@ export function isWithinSkew(
 // ============================================================================
 // Rate Limiting (Simple In-Memory)
 // ============================================================================
+//
+// ⚠️  PRODUCTION WARNING: This is an in-memory rate limiter with limitations:
+//
+// 1. Data is lost on server restart
+// 2. Does NOT work with horizontal scaling (multiple instances)
+// 3. Each instance maintains its own separate counter
+// 4. Memory can grow unbounded under high traffic
+//
+// For production deployments, consider:
+// - Redis-based rate limiting (e.g., ioredis + rate-limiter-flexible)
+// - Upstash Rate Limiting (@upstash/ratelimit)
+// - Cloudflare Rate Limiting
+// - API Gateway rate limiting (AWS, GCP, Azure)
+//
+// This implementation is suitable for:
+// - Development environments
+// - Single-instance deployments
+// - Low-traffic applications
+//
+// ============================================================================
 
 interface RateLimitEntry {
   count: number;
