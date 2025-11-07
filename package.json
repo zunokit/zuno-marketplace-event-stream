@@ -7,9 +7,9 @@
     "build": "next build --turbopack",
     "start": "next start",
     "lint": "eslint",
-    "test": "jest",
-    "test:watch": "jest --watch",
-    "test:coverage": "jest --coverage",
+    "test": "jest --config tests/setup/jest.config.ts",
+    "test:watch": "jest --config tests/setup/jest.config.ts --watch",
+    "test:coverage": "jest --config tests/setup/jest.config.ts --coverage",
     "test:iframe": "serve -s tests/parent-app -p 3001",
     "generate-token": "tsx scripts/generate-token.ts"
   },

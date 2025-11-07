@@ -1,18 +1,23 @@
 import type { Config } from "jest";
 import nextJest from "next/jest";
+import path from "path";
+
+// Get the project root (two levels up from this config file)
+const projectRoot = path.resolve(__dirname, "../../");
 
 const createJestConfig = nextJest({
   // Provide the path to your Next.js app to load next.config.js and .env files in your test environment
-  dir: "./",
+  dir: projectRoot,
 });
 
 // Add any custom config to be passed to Jest
 const config: Config = {
   coverageProvider: "v8",
   testEnvironment: "jsdom",
-  setupFilesAfterEnv: ["<rootDir>/tests/setup/jest.setup.ts"],
+  rootDir: projectRoot,
+  setupFilesAfterEnv: [path.join(projectRoot, "tests/setup/jest.setup.ts")],
   moduleNameMapper: {
-    "^@/(.*)$": "<rootDir>/src/$1",
+    "^@/(.*)$": path.join(projectRoot, "src/$1"),
   },
   testMatch: [
     "**/__tests__/**/*.test.[jt]s?(x)",
