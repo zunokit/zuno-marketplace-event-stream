@@ -439,7 +439,60 @@ describe("PonderClient", () => {
       );
     });
 
-    it.skip("should throw PonderClientError on timeout", async () => {
-    });
+    it(
+      "should throw PonderClientError on timeout",
+      async () => {
+        // Create a client with very short timeout for fast testing
+        const timeoutClient = new PonderClient({
+          baseUrl: mockBaseUrl,
+          timeout: 50, // 50ms timeout
+        });
+
+        // Mock fetch that respects AbortController signal
+        (global.fetch as jest.Mock).mockImplementationOnce(
+          (_url: string, options: RequestInit) =>
+            new Promise((resolve, reject) => {
+              const signal = options?.signal;
+
+              // Set up abort handler
+              if (signal) {
+                signal.addEventListener("abort", () => {
+                  reject(new DOMException("The operation was aborted", "AbortError"));
+                });
+              }
+
+              // Simulate slow response (200ms - longer than 50ms timeout)
+              setTimeout(() => {
+                if (!signal?.aborted) {
+                  resolve({
+                    ok: true,
+                    status: 200,
+                    headers: { get: () => null },
+                    json: async () => ({ success: true, data: [] }),
+                  });
+                }
+              }, 200);
+            })
+        );
+
+        // Execute request and verify it throws timeout error
+        try {
+          await timeoutClient.getActivity(50);
+          fail("Expected PonderClientError to be thrown");
+        } catch (error) {
+          // Verify error type and properties
+          expect(error).toBeInstanceOf(PonderClientError);
+          expect((error as PonderClientError).message).toBe("Request timeout");
+          expect((error as PonderClientError).statusCode).toBe(408);
+          expect((error as PonderClientError).cause).toBeInstanceOf(
+            DOMException
+          );
+          expect(((error as PonderClientError).cause as DOMException).name).toBe(
+            "AbortError"
+          );
+        }
+      },
+      2000 // Test timeout: 2 seconds is enough
+    );
   });
 });
