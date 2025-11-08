@@ -1,10 +1,8 @@
 import type { Config } from "jest";
-import nextJest from "next/jest.js";
+import nextJest from "next/jest";
 import path from "path";
-import { fileURLToPath } from "url";
 
-const __filename = fileURLToPath(import.meta.url);
-const __dirname = path.dirname(__filename);
+// __dirname is available in ts-node's CommonJS mode
 const projectRoot = path.resolve(__dirname, "../../");
 
 const createJestConfig = nextJest({
