@@ -80,8 +80,9 @@ document.getElementById("generateBtn").addEventListener("click", async () => {
   });
   const embedUrl = `${appUrl}?${params.toString()}`;
 
-  // Calculate expiry
-  const expiresAt = new Date((timestamp + 3000) * 1000);
+  // Calculate expiry (100 years - effectively permanent)
+  const TIMESTAMP_SKEW_SECONDS = 3153600000;
+  const expiresAt = new Date((timestamp + TIMESTAMP_SKEW_SECONDS) * 1000);
 
   // Store data
   currentData = { embedUrl, nonce, timestamp, token, expiresAt };
@@ -132,7 +133,7 @@ function displayToken() {
     timestamp * 1000
   ).toLocaleString()})`;
   document.getElementById("token").textContent = token;
-  document.getElementById("expires").textContent = expiresAt.toLocaleString();
+  document.getElementById("expires").textContent = `${expiresAt.toLocaleString()} (effectively permanent)`;
   document.getElementById("embedUrl").textContent = embedUrl;
 
   document.getElementById("tokenSection").style.display = "block";
@@ -146,28 +147,8 @@ function embedIframe() {
 
   document.getElementById("iframeSection").style.display = "block";
 
-  // Check expiry
-  checkExpiry();
-}
-
-function checkExpiry() {
-  if (!currentData) return;
-
-  const now = Math.floor(Date.now() / 1000);
-  const timeRemaining = currentData.timestamp + 300 - now;
-
-  if (timeRemaining <= 0) {
-    alert("⚠️ Token has expired! Generate a new token.");
-    return;
-  }
-
-  // Show warning at 1 minute remaining
-  if (timeRemaining <= 60 && timeRemaining > 59) {
-    console.warn("Token will expire in 1 minute");
-  }
-
-  // Check again in 10 seconds
-  setTimeout(checkExpiry, 10000);
+  // Tokens do not expire (TIMESTAMP_SKEW_SECONDS = 100 years)
+  // No need to check expiry
 }
 
 // ============================================================================
