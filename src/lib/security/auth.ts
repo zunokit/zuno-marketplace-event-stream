@@ -222,11 +222,6 @@ export function getClientIP(headers: Headers): string {
  * Add this to protect against token theft
  */
 export function isOriginAllowed(origin: string | null): boolean {
-  // No origin header = direct access, block
-  if (!origin) {
-    return false;
-  }
-
   // Get allowed origins from env
   const allowedOrigins =
     process.env.NEXT_PUBLIC_ALLOWED_ORIGINS?.split(",").map((o) => o.trim()) ||
@@ -234,12 +229,20 @@ export function isOriginAllowed(origin: string | null): boolean {
 
   // Development: Allow localhost
   if (process.env.NODE_ENV === "development") {
+    if (!origin) {
+      return true;
+    }
+    // Allow localhost
     if (
       origin.startsWith("http://localhost") ||
       origin.startsWith("http://127.0.0.1")
     ) {
       return true;
     }
+  }
+
+  if (!origin ) {
+    return false;
   }
 
   // Check exact match

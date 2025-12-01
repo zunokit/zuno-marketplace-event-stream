@@ -43,14 +43,7 @@ export function useEvents(options: UseEventsOptions = {}): UseEventsResult {
 
   const client = usePonderClient();
 
-  const {
-    data,
-    isLoading,
-    isError,
-    error,
-    refetch,
-    dataUpdatedAt,
-  } = useQuery({
+  const { data, isLoading, isError, error, refetch, dataUpdatedAt } = useQuery({
     queryKey: ["events", limit],
     queryFn: () => client.getActivity(limit),
     refetchInterval,
@@ -59,7 +52,8 @@ export function useEvents(options: UseEventsOptions = {}): UseEventsResult {
     gcTime: CACHE_GC_TIME_MS,
     enabled,
     retry: 3,
-    retryDelay: (attemptIndex) => Math.min(1000 * 2 ** attemptIndex, MAX_RETRY_DELAY_MS),
+    retryDelay: (attemptIndex) =>
+      Math.min(1000 * 2 ** attemptIndex, MAX_RETRY_DELAY_MS),
   });
 
   return {

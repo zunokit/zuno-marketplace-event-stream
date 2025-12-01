@@ -8,6 +8,7 @@
  */
 
 import crypto from "crypto";
+import { TIMESTAMP_SKEW_SECONDS } from "../src/lib/constants.js";
 
 // Configuration
 const SECRET = process.env.IFRAME_API_SECRET || "your-secret-here";
@@ -38,8 +39,8 @@ function generateToken(): {
   });
   const url = `${APP_URL}?${params.toString()}`;
 
-  // Calculate expiry (5 minutes from now)
-  const expiresAt = new Date((timestamp + 300) * 1000);
+  // Calculate expiry (using TIMESTAMP_SKEW_SECONDS - effectively permanent)
+  const expiresAt = new Date((timestamp + TIMESTAMP_SKEW_SECONDS) * 1000);
 
   return { url, nonce, timestamp, token, expiresAt };
 }
@@ -64,12 +65,12 @@ console.log("📋 Token Details:");
 console.log("  Nonce:     ", result.nonce);
 console.log("  Timestamp: ", result.timestamp);
 console.log("  Token:     ", result.token);
-console.log("  Expires:   ", result.expiresAt.toISOString());
+console.log("  Expires:   ", result.expiresAt.toISOString(), "(effectively permanent)");
 console.log("\n🔗 Embed URL:");
 console.log("  ", result.url);
 console.log("\n📝 IFrame HTML:");
 console.log(generateIframeHTML(result.url));
-console.log("\n✅ Valid for 5 minutes from generation\n");
+console.log("\n✅ Token does not expire (TIMESTAMP_SKEW_SECONDS = 100 years)\n");
 
 // Export for programmatic use
 export { generateToken, generateIframeHTML };
