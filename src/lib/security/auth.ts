@@ -227,7 +227,7 @@ export function isOriginAllowed(origin: string | null): boolean {
     process.env.NEXT_PUBLIC_ALLOWED_ORIGINS?.split(",").map((o) => o.trim()) ||
     [];
 
-  // Development: Allow localhost and null origin
+  // Development: Allow localhost
   if (process.env.NODE_ENV === "development") {
     if (!origin) {
       return true;
