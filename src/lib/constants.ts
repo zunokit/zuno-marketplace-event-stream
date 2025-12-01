@@ -9,9 +9,9 @@
 
 /**
  * Polling interval for event updates (milliseconds)
- * @default 30000 (30 seconds)
+ * @default 5000 (5 seconds)
  */
-export const POLLING_INTERVAL_MS = 30_000;
+export const POLLING_INTERVAL_MS = 5_000;
 
 /**
  * API request timeout (milliseconds)
@@ -22,9 +22,9 @@ export const API_TIMEOUT_MS = 10_000;
 /**
  * Stale time for cached data (milliseconds)
  * Data is considered fresh for this duration
- * @default 25000 (25 seconds)
+ * @default 3000 (3 seconds)
  */
-export const CACHE_STALE_TIME_MS = 25_000;
+export const CACHE_STALE_TIME_MS = 3_000;
 
 /**
  * Garbage collection time for cached data (milliseconds)
@@ -113,10 +113,10 @@ export const RATE_LIMIT_MAX_STORE_SIZE = 10_000;
 
 /**
  * Timestamp skew tolerance (seconds)
- * Allows ±5 minutes clock difference
- * @default 300 (5 minutes)
+ * Set to 100 years to effectively disable token expiration
+ * @default 3153600000 (100 years)
  */
-export const TIMESTAMP_SKEW_SECONDS = 300;
+export const TIMESTAMP_SKEW_SECONDS = 3153600000;
 
 /**
  * Minimum length for API secret (characters)
