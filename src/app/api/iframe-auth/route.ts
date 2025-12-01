@@ -27,6 +27,9 @@ export async function OPTIONS(request: NextRequest) {
 
 export async function GET(request: NextRequest) {
   const origin = request.headers.get("origin");
+  
+  // Debug: Log origin
+  console.log(`[iframe-auth] Origin: "${origin}", NODE_ENV: ${process.env.NODE_ENV}`);
 
   // 0. Origin validation (OPTIONAL - comment out to disable)
   // Protects against token theft by checking origin

@@ -1,14 +1,29 @@
 // ============================================================================
-// Token Generation (SHA256 HMAC simulation)
+// Token Generation (HMAC-SHA256 using Web Crypto API)
 // ============================================================================
 
 /**
- * Generate SHA256 hash (using Web Crypto API)
+ * Generate HMAC-SHA256 token (matching server-side implementation)
  */
-async function sha256(message) {
-  const msgBuffer = new TextEncoder().encode(message);
-  const hashBuffer = await crypto.subtle.digest("SHA-256", msgBuffer);
-  const hashArray = Array.from(new Uint8Array(hashBuffer));
+async function generateHmacSha256(secret, message) {
+  const encoder = new TextEncoder();
+  const keyData = encoder.encode(secret);
+  const messageData = encoder.encode(message);
+
+  // Import secret as HMAC key
+  const key = await crypto.subtle.importKey(
+    "raw",
+    keyData,
+    { name: "HMAC", hash: "SHA-256" },
+    false,
+    ["sign"]
+  );
+
+  // Sign the message
+  const signature = await crypto.subtle.sign("HMAC", key, messageData);
+
+  // Convert to hex string
+  const hashArray = Array.from(new Uint8Array(signature));
   return hashArray.map((b) => b.toString(16).padStart(2, "0")).join("");
 }
 
@@ -21,10 +36,11 @@ function generateUUID() {
 
 /**
  * Generate iframe token
+ * Format: HMAC-SHA256(secret, "nonce:timestamp")
  */
 async function generateToken(secret, nonce, timestamp) {
-  const message = `${secret}:${nonce}:${timestamp}`;
-  return await sha256(message);
+  const message = `${nonce}:${timestamp}`;
+  return await generateHmacSha256(secret, message);
 }
 
 // ============================================================================
@@ -65,7 +81,7 @@ document.getElementById("generateBtn").addEventListener("click", async () => {
   const embedUrl = `${appUrl}?${params.toString()}`;
 
   // Calculate expiry
-  const expiresAt = new Date((timestamp + 300) * 1000);
+  const expiresAt = new Date((timestamp + 3000) * 1000);
 
   // Store data
   currentData = { embedUrl, nonce, timestamp, token, expiresAt };

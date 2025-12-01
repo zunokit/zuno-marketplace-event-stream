@@ -39,7 +39,7 @@ function generateToken(): {
   const url = `${APP_URL}?${params.toString()}`;
 
   // Calculate expiry (5 minutes from now)
-  const expiresAt = new Date((timestamp + 300) * 1000);
+  const expiresAt = new Date((timestamp + 3000) * 1000);
 
   return { url, nonce, timestamp, token, expiresAt };
 }
