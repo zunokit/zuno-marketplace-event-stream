@@ -1,0 +1,19 @@
+# Development Dockerfile for zuno-marketplace-event-stream.
+# Used by `docker compose up`. Not for production.
+
+FROM node:20-alpine
+
+WORKDIR /app
+
+RUN corepack enable && corepack prepare pnpm@9 --activate
+
+# Install deps first (better layer caching)
+COPY package.json pnpm-lock.yaml ./
+RUN pnpm install --frozen-lockfile
+
+# Copy source
+COPY . .
+
+EXPOSE 3000
+
+CMD ["pnpm", "dev"]

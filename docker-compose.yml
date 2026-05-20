@@ -1,0 +1,49 @@
+# Local development for zuno-marketplace-event-stream.
+#
+# This app has no own infrastructure dependencies — it only calls the
+# Ponder indexer's HTTP API. The compose file lets you run the widget
+# itself (and an optional parent-app harness on :3001) in Docker; it
+# does NOT start the indexer (run that out of its own repo or point
+# NEXT_PUBLIC_PONDER_API_URL at a hosted endpoint).
+#
+# Usage:
+#   docker compose up -d                     # widget on :3000
+#   docker compose --profile harness up -d   # also start parent-app on :3001
+#
+# Most devs just want `pnpm dev` on host — Docker is here so the team
+# has a one-command path that matches the other zuno-marketplace repos.
+
+services:
+  app:
+    build:
+      context: .
+      dockerfile: Dockerfile.dev
+    container_name: event-stream-app
+    ports:
+      - "3000:3000"
+    env_file:
+      - .env.local
+    environment:
+      # On Linux Docker, host.docker.internal needs the mapping below to
+      # reach a Ponder indexer running on the host.
+      NEXT_PUBLIC_PONDER_API_URL: ${NEXT_PUBLIC_PONDER_API_URL:-http://host.docker.internal:42069}
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
+    volumes:
+      - .:/app
+      - /app/node_modules
+      - /app/.next
+
+  # Optional: serves tests/parent-app on :3001 so you can iframe-embed the
+  # widget without standing up another server. Enable with
+  # `docker compose --profile harness up -d`.
+  parent-app:
+    image: node:20-alpine
+    container_name: event-stream-parent-app
+    profiles: ["harness"]
+    working_dir: /app
+    command: ["npx", "-y", "serve", "-s", "tests/parent-app", "-l", "3001"]
+    ports:
+      - "3001:3001"
+    volumes:
+      - .:/app

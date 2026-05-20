@@ -84,6 +84,22 @@ pnpm test:iframe
 
 Open browser at `http://localhost:3001`, enter your secret, and click "Generate Token & Embed".
 
+### Alternative: Run with Docker
+
+This app has no infrastructure dependencies of its own — it only calls the Ponder
+indexer — so the Docker setup is for convenience / parity with the other repos:
+
+```bash
+cp .env.example .env.local
+docker compose up -d                       # widget on :3000
+docker compose --profile harness up -d     # ALSO start the parent-app harness on :3001
+docker compose down                        # stop
+```
+
+The Ponder indexer is **not** started by this compose file — point
+`NEXT_PUBLIC_PONDER_API_URL` at a running indexer (use `host.docker.internal:42069`
+to reach one on the host).
+
 ## 📁 Project Structure
 
 ```
