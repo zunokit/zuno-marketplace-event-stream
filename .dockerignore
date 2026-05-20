@@ -1,0 +1,15 @@
+.git
+.gitignore
+.next
+node_modules
+coverage
+.env
+.env.*
+!.env.example
+Dockerfile*
+docker-compose*.yml
+*.md
+!README.md
+.vscode
+.idea
+tests/parent-app/node_modules
